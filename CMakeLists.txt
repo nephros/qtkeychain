@@ -39,6 +39,15 @@ if(CMAKE_SYSTEM_NAME STREQUAL Haiku)
     set(HAIKU 1)
 endif()
 
+option(SAILFISHOS "Build Sailfish Secrets backend" OFF)
+if(SAILFISHOS)
+    set(BUILD_WITH_QT6 OFF)
+    add_compile_definitions(-DSAILFISHOS)
+    pkg_check_modules(SFS REQUIRED IMPORTED_TARGET sailfishsecrets)
+#    include_directories(${SFS_INCLUDE_DIRS})
+    list(APPEND qtkeychain_LIBRARIES PkgConfig::SFS)
+endif()
+
 if (WIN32)
     option(USE_CREDENTIAL_STORE "Build with windows CredentialStore support" ON)
 
@@ -168,7 +177,7 @@ if(HAIKU)
     list(APPEND qtkeychain_LIBRARIES ${BE_LIBRARY})
 endif()
 
-if(UNIX AND NOT APPLE AND NOT ANDROID AND NOT HAIKU)
+if(UNIX AND NOT APPLE AND NOT ANDROID AND NOT HAIKU AND NOT SAILFISHOS)
     option(LIBSECRET_SUPPORT "Build with libsecret support" ON)
 
     if(LIBSECRET_SUPPORT)
