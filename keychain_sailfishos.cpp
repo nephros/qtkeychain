@@ -90,7 +90,6 @@ static QStringList getCollectionNames()
         qWarning() << "Failed to list collections"
                    << request.result().errorMessage();
     }
-    qDebug() << "Known Collections:" << request.collectionNames();
     return request.collectionNames();
 }
 
