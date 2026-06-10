@@ -18,7 +18,7 @@
         <location filename="../keychain_unix.cpp" line="560"/>
         <location filename="../keychain_sailfishos.cpp" line="288"/>
         <source>Unknown error</source>
-        <translation type="unfinished">Unbekannter Fehler</translation>
+        <translation>Unbekannter Fehler</translation>
     </message>
     <message>
         <location filename="../keychain_unix.cpp" line="578"/>
@@ -28,12 +28,12 @@
     <message>
         <location filename="../keychain_sailfishos.cpp" line="269"/>
         <source>Failed to delete secret with ID %1 from collection %2</source>
-        <translation type="unfinished"></translation>
+        <translation>Konnte Geheimnis mit ID %1 nicht aus Sammlung %2 löschen</translation>
     </message>
     <message>
         <location filename="../keychain_sailfishos.cpp" line="281"/>
         <source>Failed to delete secret: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Konnte Geheimnis nicht löschen: %1</translation>
     </message>
     <message>
         <location filename="../keychain_haiku.cpp" line="177"/>
@@ -165,22 +165,22 @@
     <message>
         <location filename="../keychain_sailfishos.cpp" line="113"/>
         <source>Failed to connect to secret manager!</source>
-        <translation type="unfinished"></translation>
+        <translation>Konnte keine Verbindung zum Secrets Manager herstellen!</translation>
     </message>
     <message>
         <location filename="../keychain_sailfishos.cpp" line="120"/>
         <source>Failed to find a secret collection %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Sammlung %1 konnte nicht gefunden werden</translation>
     </message>
     <message>
         <location filename="../keychain_sailfishos.cpp" line="127"/>
         <source>Failed to retrieve secret with ID %1 from collection %2</source>
-        <translation type="unfinished"></translation>
+        <translation>Konnte das Geheimnis mit ID %1 nicht in Sammlung %2 finden</translation>
     </message>
     <message>
         <location filename="../keychain_sailfishos.cpp" line="139"/>
         <source>Failed to retrieve secret: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Konnte Geheimnis nicht holen: %1</translation>
     </message>
     <message>
         <location filename="../keychain_android.cpp" line="60"/>
@@ -260,22 +260,22 @@
     <message>
         <location filename="../keychain_sailfishos.cpp" line="189"/>
         <source>Failed to connect to secret manager!</source>
-        <translation type="unfinished"></translation>
+        <translation>Konnte keine Verbindung zum Secrets Manager herstellen!</translation>
     </message>
     <message>
         <location filename="../keychain_sailfishos.cpp" line="200"/>
         <source>Failed to create secret collection</source>
-        <translation type="unfinished"></translation>
+        <translation>Konnte Geheimnissammlung nicht erstellen</translation>
     </message>
     <message>
         <location filename="../keychain_sailfishos.cpp" line="208"/>
         <source>Failed to create secret with ID %1 from collection %2</source>
-        <translation type="unfinished"></translation>
+        <translation>Konnte Geheimnis mit Id %1 nicht in Sammlung %2 erstellen</translation>
     </message>
     <message>
         <location filename="../keychain_sailfishos.cpp" line="232"/>
         <source>Failed to store secret: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Konnte Geheimnis nicht speichern: %1</translation>
     </message>
     <message>
         <location filename="../keychain_haiku.cpp" line="144"/>
