@@ -24,11 +24,11 @@
 //#include <QDBusError>
 using namespace QKeychain;
 
+/*
 enum KeyringBackend {
     Backend_SailfishSecrets
 };
 
-/*
 static KeyringBackend getKeyringBackend()
 {
 //    static KeyringBackend backend = detectKeyringBackend();
