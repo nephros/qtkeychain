@@ -171,7 +171,7 @@ endif()
 
 if(SAILFISHOS)
     message(STATUS "Building for Sailfish OS")
-    add_compile_definitions(-DSAILFISHOS)
+    add_definitions(-DSAILFISHOS=1)
     set(BUILD_WITH_QT6 OFF)
     pkg_check_modules(SFS REQUIRED IMPORTED_TARGET sailfishsecrets)
     include_directories(${SFS_INCLUDE_DIRS})
