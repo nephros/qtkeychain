@@ -10,6 +10,10 @@
 
 #include "plaintextstore_p.h"
 
+#ifdef SAILFISHOS
+#include <QDir>
+#endif
+
 using namespace QKeychain;
 
 namespace {
@@ -23,7 +27,11 @@ inline QString typeKey(const QString &key) { return key + QLatin1String("/type")
 
 
 PlainTextStore::PlainTextStore(const QString &service, QSettings *settings)
+#ifdef SAILFISHOS
+    : m_localSettings(settings ? 0 : new QSettings(QString("%1/.config/%2/%3").arg(QDir::homePath()).arg(QCoreApplication::organizationName()).arg(service)))
+#else
     : m_localSettings(settings ? 0 : new QSettings(service))
+#endif
     , m_actualSettings(settings ? settings : m_localSettings.data())
     , m_error(NoError)
 {
