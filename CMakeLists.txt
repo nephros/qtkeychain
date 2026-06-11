@@ -179,7 +179,7 @@ if(SAILFISHOS)
     include_directories(${SFS_INCLUDE_DIRS})
     list(APPEND qtkeychain_LIBRARIES PkgConfig::SFS)
 
-    list(APPEND qtkeychain_SOURCES keychain_sailfishos.cpp plaintextstore.cpp)
+    list(APPEND qtkeychain_SOURCES keychain_sailfishos.cpp sailfishsecretsstore.cpp plaintextstore.cpp)
 endif()
 
 
@@ -208,7 +208,7 @@ endif()
 if(NOT SAILFISHOS)
     QT_WRAP_CPP(qtkeychain_MOC_OUTFILES keychain.h keychain_p.h gnomekeyring_p.h)
 else()
-    QT_WRAP_CPP(qtkeychain_MOC_OUTFILES keychain.h keychain_p.h)
+    QT_WRAP_CPP(qtkeychain_MOC_OUTFILES keychain.h keychain_p.h sailfishsecretsstore_p.h)
 endif()
 
 set(qtkeychain_TR_FILES

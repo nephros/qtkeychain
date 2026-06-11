@@ -7,20 +7,13 @@
  * details, check the accompanying file 'COPYING'.                            *
  *****************************************************************************/
 #include "keychain_p.h"
-//#include "sailfishsecrets_p.h"
+#include "sailfishsecretsstore_p.h"
 #include "plaintextstore_p.h"
 
+#include <QTimer>
 #include <QScopedPointer>
 #include <QDebug>
 #include <QMetaEnum>
-
-#include <Secrets/secretmanager.h>
-#include <Secrets/collectionnamesrequest.h>
-#include <Secrets/createcollectionrequest.h>
-#include <Secrets/storedsecretrequest.h>
-#include <Secrets/storesecretrequest.h>
-#include <Secrets/deletesecretrequest.h>
-#include <Secrets/findsecretsrequest.h>
 
 //#include <QDBusError>
 using namespace QKeychain;
@@ -37,137 +30,57 @@ static KeyringBackend getKeyringBackend()
 }
 */
 
-static Sailfish::Secrets::SecretManager manager;
-
-// SQLCipher plugin only accepts alphanumeric collection names:
-// Remove non-alphanumeric chars from string
-static QString cleanString(const QString &toClean) {
-    const QRegExp re(QStringLiteral("[-`~!@#$%^&*()_—+=|:;<>«»,.?/{}\'\"\\[\\]\\\\]"));
-    QString toReturn = toClean;
-    toReturn.replace(re, "0");
-    return toReturn;
-}
-
-static Sailfish::Secrets::Result::ErrorCode createCollection(const QString& name)
-{
-    Sailfish::Secrets::CreateCollectionRequest request;
-
-    const QString cleanName = cleanString(name);
-    request.setManager(&manager);
-    request.setCollectionName(cleanName);
-    int diff = (name.length() - cleanName.length());
-    if (diff != 0) {
-        qInfo() << "Removed " << diff <<  "non-alphanumeric characters from name";
-    }
-
-    //request.setAccessControlMode(Sailfish::Secrets::SecretManager::OwnerOnlyMode);
-    // not implemented!
-    //request.setAccessControlMode(Sailfish::Secrets::SecretManager::SystemAccessControlMode);
-    request.setAccessControlMode(Sailfish::Secrets::SecretManager::NoAccessControlMode);
-    request.setCollectionLockType(Sailfish::Secrets::CreateCollectionRequest::DeviceLock);
-    request.setDeviceLockUnlockSemantic(Sailfish::Secrets::SecretManager::DeviceLockRelock);
-    request.setStoragePluginName(Sailfish::Secrets::SecretManager::DefaultEncryptedStoragePluginName);
-    request.setEncryptionPluginName(Sailfish::Secrets::SecretManager::DefaultEncryptedStoragePluginName);
-
-    request.startRequest();
-    request.waitForFinished();
-    if (request.result().code() == Sailfish::Secrets::Result::Failed) {
-        qWarning() << QString("Failed to create collection '%1 (%2)':").arg(name).arg(cleanName)
-                   << request.result().errorMessage();
-        return request.result().errorCode();
-    }
-    qDebug() << "Created new collection named" << cleanName << "for" << name;
-    return Sailfish::Secrets::Result::NoError;
-}
-
-static QStringList getCollectionNames()
-{
-    Sailfish::Secrets::CollectionNamesRequest request;
-    request.setManager(&manager);
-    request.setStoragePluginName(Sailfish::Secrets::SecretManager::DefaultEncryptedStoragePluginName);
-    request.startRequest();
-    request.waitForFinished();
-    if (request.result().code() == Sailfish::Secrets::Result::Failed) {
-        qWarning() << "Failed to list collections"
-                   << request.result().errorMessage();
-    }
-    return request.collectionNames();
-}
-
-static Sailfish::Secrets::Secret::Identifier createIdentifier(const QString &collection, const QString &name)
-{
-    return Sailfish::Secrets::Secret::Identifier(
-        name,
-        collection,
-        Sailfish::Secrets::SecretManager::DefaultEncryptedStoragePluginName);
-}
-
-static QVector<Sailfish::Secrets::Secret::Identifier> findSecret(const QString &service, const QString &collection, const QString &key)
-{
-    Sailfish::Secrets::FindSecretsRequest request;
-    request.setManager(&manager);
-    request.setStoragePluginName(Sailfish::Secrets::SecretManager::DefaultEncryptedStoragePluginName);
-
-    Sailfish::Secrets::Secret::FilterData filter;
-    filter.insert(QLatin1String("service"), service);
-    if (!QCoreApplication::organizationName().isEmpty())
-        filter.insert(QLatin1String("org"), QCoreApplication::organizationName());
-    if (!QCoreApplication::applicationName().isEmpty())
-        filter.insert(QLatin1String("app"), QCoreApplication::applicationName());
-
-    request.setFilter(filter);
-    request.startRequest();
-    request.waitForFinished();
-    if (request.result().code() == Sailfish::Secrets::Result::Failed) {
-        qWarning() << QString("Failed to list secrets in collection %1:").arg(collection)
-                   << request.result().errorMessage();
-    }
-    return request.identifiers();
-}
+static SailfishSecretStore *secretsStore = new SailfishSecretStore();
 
 void ReadPasswordJobPrivate::scheduledStart() {
 
-    Sailfish::Secrets::StoredSecretRequest request;
+    Sailfish::Secrets::StoredSecretRequest* request;
     Sailfish::Secrets::Secret::Identifier sid;
-    const QString collection  = cleanString(service);
-    if (!manager.isInitialized()) {
+    const QString collection  = secretsStore->cleanString(service);
+    if (!secretsStore->isInitialized()) {
         qWarning() << "Failed to connect to secret manager!";
         q->emitFinishedWithError( NoBackendAvailable, tr("Failed to connect to secret manager!") );
         return;
     }
 
-    QStringList collections = getCollectionNames();
+    QStringList collections;
+    bool found = secretsStore->getCollectionNames(&collections);
+    if (!found) {
+        qWarning() << "Failed to open secret collection:" << secretsStore->getLastError().errorMessage();
+        q->emitFinishedWithError( OtherError, tr("Failed to open secret collection") );
+        return;
+    }
     if (collections.isEmpty() || !collections.contains(collection)) {
         qWarning() << "Failed to find secrets collection!";
         q->emitFinishedWithError( EntryNotFound, tr("Failed to find a secret collection %1").arg(key) );
         return;
     }
 
-    sid = createIdentifier(collection, key);
+    sid = secretsStore->createIdentifier(collection, key);
     if (!sid.isValid()) {
         qWarning() << "Failed to create secret identifier!";
         q->emitFinishedWithError( EntryNotFound, tr("Failed to retrieve secret with ID %1 from collection %2").arg(key).arg(collection) );
         return;
     }
-    request.setManager(&manager);
-    request.setIdentifier(sid);
-    request.setUserInteractionMode(Sailfish::Secrets::SecretManager::SystemInteraction);
-    request.startRequest();
+    request = secretsStore->getReadRequest(sid);
+    request->startRequest();
     // TODO: Use a callback:
-    request.waitForFinished();
-    if (request.result().code() == Sailfish::Secrets::Result::Failed) {
+    request->waitForFinished();
+    if (request->result().code() == Sailfish::Secrets::Result::Failed) {
         qWarning() << "Failed to retrieve secret:"
-                   << request.result().errorMessage();
-        q->emitFinishedWithError( EntryNotFound, tr("Failed to retrieve secret: %1").arg(request.result().errorMessage()) );
+                   << request->result().errorMessage();
+        q->emitFinishedWithError( EntryNotFound, tr("Failed to retrieve secret: %1").arg(request->result().errorMessage()) );
         return;
     } else {
         qDebug() << "Secret data retrieved:"
-                 << "type" << request.secret().type() << ","
-                 << request.secret().data().length() << "bytes";
-        mode = (request.secret().type() == Sailfish::Secrets::Secret::TypeBlob)
-               ? Mode::Text
-               : Mode::Binary;
-        data = request.secret().data();
+                 << "type" << request->secret().type() << ","
+                 << request->secret().data().length() << "bytes";
+        // possible types: Unknown Blob CryptoKey
+        // FIXME: is CryptoKey text or binary?
+        mode = (request->secret().type() == Sailfish::Secrets::Secret::TypeBlob)
+               ? Mode::Binary
+               : Mode::Text;
+        data = request->secret().data();
         q->emitFinished();
         return;
     }
@@ -201,21 +114,28 @@ void ReadPasswordJobPrivate::fallbackOnError(const QDBusError& err )
 
 void WritePasswordJobPrivate::scheduledStart()
 {
-    Sailfish::Secrets::StoreSecretRequest request;
+    Sailfish::Secrets::StoreSecretRequest* request;
     Sailfish::Secrets::Secret::Identifier sid;
     Sailfish::Secrets::Secret secret;
-    const QString collection  = cleanString(service);
+    const QString collection  = secretsStore->cleanString(service);
 
-    if (!manager.isInitialized()) {
+    if (!secretsStore->isInitialized()) {
         qWarning() << "Failed to connect to secret manager!";
         q->emitFinishedWithError( NoBackendAvailable, tr("Failed to connect to secret manager!") );
         return;
     }
 
-    QStringList collections = getCollectionNames();
-    if (!collections.contains(collection)) {
 
-        auto ok = createCollection(collection);
+    // check for collection, create if necessary
+    QStringList collections;
+    bool found = secretsStore->getCollectionNames(&collections);
+    if (!found) {
+        qWarning() << "Failed to open secret collection!";
+        q->emitFinishedWithError( OtherError, tr("Failed to open secret collection") );
+        return;
+    }
+    if (!collections.contains(collection)) {
+        auto ok = secretsStore->createCollection(collection);
         if (ok != Sailfish::Secrets::Result::NoError) {
             QMetaEnum metaEnum = QMetaEnum::fromType<Sailfish::Secrets::Result::ErrorCode>();
             qWarning() << "Failed to create secret collection!" << metaEnum.valueToKey(ok);
@@ -223,16 +143,22 @@ void WritePasswordJobPrivate::scheduledStart()
             return;
         }
     } else {
-    /* FIXME/TODO: storing will fail if the collection already has a secret with the same key.
-     * So, check for existence before writing.
-    */
-        QVector<Sailfish::Secrets::Secret::Identifier> ids = findSecret(service, collection, key);
+        /* FIXME/TODO: storing will fail if the collection already has a secret with the same key.
+         * So, check for existence before writing.
+        */
+        QVector<Sailfish::Secrets::Secret::Identifier> ids;
+        bool ok = secretsStore->findSecret(service, collection, key, &ids);
+        if (!ok) {
+            qWarning() << "Could not list secrets: " << secretsStore->getLastError().errorMessage();
+            q->emitFinishedWithError( OtherError, tr("Could not list secrets") );
+            return;
+        }
         if (!ids.isEmpty()) {
             q->emitFinishedWithError( NotImplemented, tr("Updating secrets is not supported") );
         }
     }
 
-    sid = createIdentifier(collection, key);
+    sid = secretsStore->createIdentifier(collection, key);
     if (!sid.isValid()) {
         qWarning() << "Failed to create secret identifier!";
         q->emitFinishedWithError( OtherError, tr("Failed to create secret with ID %1 from collection %2").arg(key).arg(collection) );
@@ -250,16 +176,13 @@ void WritePasswordJobPrivate::scheduledStart()
     secret.setFilterData(QLatin1String("service"), service);
 
     // Request that the secret be securely stored.
-    request.setManager(&manager);
-    request.setSecretStorageType(Sailfish::Secrets::StoreSecretRequest::CollectionSecret);
-    request.setUserInteractionMode(Sailfish::Secrets::SecretManager::SystemInteraction);
-    request.setSecret(secret);
-    request.startRequest();
-    request.waitForFinished();
-    if (request.result().code() == Sailfish::Secrets::Result::Failed) {
+    request = secretsStore->getWriteRequest(secret);
+    request->startRequest();
+    request->waitForFinished();
+    if (request->result().code() == Sailfish::Secrets::Result::Failed) {
         qWarning() << "Failed to store secret:"
-                   << request.result().errorMessage();
-        q->emitFinishedWithError( OtherError, tr("Failed to store secret: %1").arg(request.result().errorMessage()) );
+                   << request->result().errorMessage();
+        q->emitFinishedWithError( OtherError, tr("Failed to store secret: %1").arg(request->result().errorMessage()) );
         return;
     } else {
         q->emitFinished();
@@ -288,29 +211,49 @@ void WritePasswordJobPrivate::fallbackOnError(const QDBusError &err)
 
 void DeletePasswordJobPrivate::scheduledStart()
 {
-    //Sailfish::Secrets::DeleteCollectionRequest request;
-    Sailfish::Secrets::DeleteSecretRequest request;
+    Sailfish::Secrets::DeleteSecretRequest* request;
     Sailfish::Secrets::Secret::Identifier sid;
-    const QString collection  = cleanString(service);
+    const QString collection  = secretsStore->cleanString(service);
 
-    sid = createIdentifier(collection, key, false);
+    bool lastEntry = false;
+
+    // delete collection if empty
+    QVector<Sailfish::Secrets::Secret::Identifier> ids;
+    bool ok = secretsStore->findSecret(service, collection, key, &ids);
+    if (!ok) {
+        q->emitFinishedWithError( OtherError, tr("Could not list secrets") );
+        return;
+    }
+    if (ids.count() == 0) {
+        qWarning() << "Found no secrets to delete!";
+        q->emitFinishedWithError( EntryNotFound, tr("Failed to delete secret: no secrets found.") );
+        return;
+    }
+
+    lastEntry = ids.count() == 1;
+
+    sid = secretsStore->createIdentifier(collection, key);
     if (!sid.isValid()) {
         qWarning() << "Failed to create secret identifier!";
         q->emitFinishedWithError( EntryNotFound, tr("Failed to delete secret with ID %1 from collection %2").arg(key).arg(collection) );
         return;
     }
-    request.setManager(&manager);
-    //request.setCollectionName(collection);
-    request.setIdentifier(sid);
-    request.setUserInteractionMode(Sailfish::Secrets::SecretManager::SystemInteraction);
-    request.startRequest();
-    request.waitForFinished();
-    if (request.result().code() == Sailfish::Secrets::Result::Failed) {
+    request = secretsStore->getDeleteRequest(sid);
+    request->startRequest();
+    request->waitForFinished();
+    if (request->result().code() == Sailfish::Secrets::Result::Failed) {
         qWarning() << "Failed to delete secret:"
-                   << request.result().errorMessage();
-        q->emitFinishedWithError( OtherError, tr("Failed to delete secret: %1").arg(request.result().errorMessage()) );
+                   << request->result().errorMessage();
+        q->emitFinishedWithError( OtherError, tr("Failed to delete secret: %1").arg(request->result().errorMessage()) );
         return;
     } else {
+        if (lastEntry) {
+            qInfo() << "Last secret deleted, removing collection";
+            //QTimer::singleShot(200, [=](const QString& c = collection) { deleteCollection(c); });
+            //QTimer::singleShot(200, [=]() { deleteCollection(collection); });
+            //QTimer::singleShot(200, &secretsStore, SLOT(deleteCollection(collection)));
+            if (!qApp->instance()) qWarning() << "No Qt event loop, deletion oneshot will not trigger!";
+        }
         q->emitFinished();
         return;
     }
