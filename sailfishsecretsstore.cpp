@@ -55,10 +55,19 @@ SailfishSecretStore::SailfishSecretStore()
     //m_authPlugin    = QStringLiteral("org.sailfishos.secrets.plugin.authentication.inapp");
     //m_authPlugin    = QStringLiteral("org.sailfishos.secrets.plugin.authentication.passwordagent");
     //printPlugins();
+    lockTimer = new QTimer(this);
+    lockTimer->setInterval(lockTimeout);
+    lockTimer->connect(lockTimer, SIGNAL(timeout()), this, SLOT(requestLock()));
 }
 
-void SailfishSecretStore::checkCollectionForDeletion()
+void SailfishSecretStore::maybeFinished(const Sailfish::Secrets::Request::Status &status,
+                                        const Sailfish::Secrets::Result &result) const
 {
+    if ( (status == Sailfish::Secrets::Request::Status::Finished)
+      && (result.code() != Sailfish::Secrets::Result::ResultCode::Pending) ) {
+        qDebug() << "Request finished";
+        lockTimer->start();
+    }
 }
 
 // SQLCipher plugin only accepts alphanumeric collection names:
@@ -90,9 +99,9 @@ bool SailfishSecretStore::createCollection(const QString& name)
     request.setAccessControlMode(manager->NoAccessControlMode);
 
     request.setCollectionLockType(Sailfish::Secrets::CreateCollectionRequest::DeviceLock);
-    //request.setDeviceLockUnlockSemantic(Sailfish::Secrets::SecretManager::DeviceLockKeepUnlocked);
-    //request.setDeviceLockUnlockSemantic(manager->DeviceLockRelock);
-    request.setDeviceLockUnlockSemantic(Sailfish::Secrets::SecretManager::DeviceLockVerifyLock);
+    //request.setDeviceLockUnlockSemantic(manager->DeviceLockKeepUnlocked);
+    request.setDeviceLockUnlockSemantic(manager->DeviceLockRelock);
+    //request.setDeviceLockUnlockSemantic(manager->DeviceLockVerifyLock);
 
     /*
     request.setCollectionLockType(Sailfish::Secrets::CreateCollectionRequest::CustomLock);
@@ -130,6 +139,8 @@ bool SailfishSecretStore::deleteCollection(const QString& name)
     Sailfish::Secrets::DeleteCollectionRequest request;
 
     request.setManager(manager);
+    request.setUserInteractionMode(manager->SystemInteraction);
+    request.setStoragePluginName(m_storagePlugin);
     request.setCollectionName(name);
 
     request.startRequest();
@@ -169,11 +180,13 @@ Sailfish::Secrets::Secret::Identifier SailfishSecretStore::createIdentifier(cons
         m_storagePlugin);
 }
 
-bool SailfishSecretStore::findSecret(const QString &service, const QString &collection, const QString &key, 
-                       QVector<Sailfish::Secrets::Secret::Identifier> *identifiers)
+bool SailfishSecretStore::listSecrets(const QString &service, const QString &collection,
+                    QVector<Sailfish::Secrets::Secret::Identifier> *ids)
 {
+    bool success = false;
     Sailfish::Secrets::FindSecretsRequest request;
     request.setManager(manager);
+    request.setUserInteractionMode(manager->SystemInteraction);
     request.setStoragePluginName(this->m_storagePlugin);
 
     request.setCollectionName(collection);
@@ -192,11 +205,13 @@ bool SailfishSecretStore::findSecret(const QString &service, const QString &coll
         qDebug() << "Error:" << request.result().errorCode()
                  << request.result().errorMessage();
         setError(request.result());
-        return false;
+        success = false;
+    } else {
+        *ids = request.identifiers();
+        success = true;
     }
 //    qDebug() << QString("Found %1 secrets in collection %2").arg(request.identifiers().length()).arg(collection);
-    *identifiers = request.identifiers();
-    return true;
+    return success;
 }
 
 
@@ -206,6 +221,8 @@ Sailfish::Secrets::StoredSecretRequest* SailfishSecretStore::getReadRequest(cons
     request->setManager(manager);
     request->setIdentifier(sid);
     request->setUserInteractionMode(manager->SystemInteraction);
+    QObject::connect(request, &Sailfish::Secrets::Request::statusChanged,
+                     this, [=](){maybeFinished(request->status(), request->result());});
     return request;
 }
 
@@ -217,6 +234,8 @@ Sailfish::Secrets::StoreSecretRequest* SailfishSecretStore::getWriteRequest(cons
     request->setUserInteractionMode(manager->SystemInteraction);
     request->setAuthenticationPluginName(m_authPlugin);
     request->setSecret(secret);
+    QObject::connect(request, &Sailfish::Secrets::Request::statusChanged,
+                     this, [=](){maybeFinished(request->status(), request->result());});
     return request;
 }
 
@@ -226,20 +245,20 @@ Sailfish::Secrets::DeleteSecretRequest* SailfishSecretStore::getDeleteRequest(co
     request->setManager(manager);
     request->setUserInteractionMode(manager->SystemInteraction);
     request->setIdentifier(sid);
-    request->connect(request, SIGNAL(statusChanged()),
-                     this, SLOT(checkCollectionForDeletion()));
+    QObject::connect(request, &Sailfish::Secrets::Request::statusChanged,
+                     this, [=](){maybeFinished(request->status(), request->result());});
     return request;
 }
 
-Sailfish::Secrets::LockCodeRequest* SailfishSecretStore::getUnlockRequest(const Sailfish::Secrets::Secret::Identifier &sid) const
+//void SailfishSecretStore::requestLock(const QString &collection) const
+void SailfishSecretStore::requestLock() const
 {
-    auto *request = new Sailfish::Secrets::LockCodeRequest();
-    request->setManager(manager);
-    request->setUserInteractionMode(manager->SystemInteraction);
-    return request;
-}
-
-void SailfishSecretStore::requestUnlock() const
-{
-//    auto request = getUnlockRequest(const Sailfish::Secrets::Secret::Identifier &sid);
+  Sailfish::Secrets::LockCodeRequest request;
+  request.setManager(manager);
+  request.setUserInteractionMode(manager->PreventInteraction);
+  request.setLockCodeRequestType(Sailfish::Secrets::LockCodeRequest::ForgetLockCode);
+//  request.setLockCodeTargetType(Sailfish::Secrets::LockCodeRequest::MetadataDatabase);
+//  request.setLockCodeTarget(collection);
+  request.setLockCodeTargetType(Sailfish::Secrets::LockCodeRequest::ExtensionPlugin);
+  request.setLockCodeTarget(m_storagePlugin);
 }

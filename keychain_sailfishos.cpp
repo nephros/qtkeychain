@@ -165,7 +165,7 @@ void WritePasswordJobPrivate::scheduledStart()
          * So, check for existence before writing.
         */
         QVector<Sailfish::Secrets::Secret::Identifier> ids;
-        bool ok = secretsStore->findSecret(service, collection, key, &ids);
+        bool ok = secretsStore->listSecrets(service, collection, &ids);
         if (!ok) {
             qWarning() << "Could not list secrets: " << secretsStore->lastError().errorMessage();
             if (secretsStore->lastError().errorCode() == Sailfish::Secrets::Result::CollectionIsLockedError) {
@@ -175,20 +175,27 @@ void WritePasswordJobPrivate::scheduledStart()
             }
             return;
         }
-        if (!ids.isEmpty()) {
-            q->emitFinishedWithError( NotImplemented, messages[SecretUpdateError] );
+        // update: use found identifier:
+        if(!ids.isEmpty() && (ids.count() == 1) && (ids.first().name() == key)) {
+            secret.setIdentifier(Sailfish::Secrets::Secret::Identifier(ids.first()));
+
+        } else { // create new
+            sid = secretsStore->createIdentifier(collection, key);
+            sid.setName(key);
+            secret.setIdentifier(sid);
         }
     }
 
-    sid = secretsStore->createIdentifier(collection, key);
+    /*
     if (!sid.isValid()) {
         qWarning() << "Failed to create secret identifier!";
         q->emitFinishedWithError( OtherError, messages[IdentifierCreateError].arg(key).arg(collection) );
         return;
     }
+    */
 
-    secret.setIdentifier(sid);
     secret.setData(data);
+    secret.setName(key);
     if (this->mode == Mode::Binary)
         secret.setType(Sailfish::Secrets::Secret::TypeBlob);
     if (!QCoreApplication::organizationName().isEmpty())
@@ -235,14 +242,13 @@ void DeletePasswordJobPrivate::scheduledStart()
 {
     Sailfish::Secrets::DeleteSecretRequest* request;
     Sailfish::Secrets::Secret::Identifier sid;
-    const QString collection  = secretsStore->formatCollectionName(service);
+    const QString collection = secretsStore->formatCollectionName(service);
 
     bool lastEntry = false;
-    /*
 
     // delete collection if empty
     QVector<Sailfish::Secrets::Secret::Identifier> ids;
-    bool ok = secretsStore->findSecret(service, collection, key, &ids);
+    bool ok = secretsStore->listSecrets(service, collection, &ids);
     if (!ok) {
         q->emitFinishedWithError( OtherError, tr("Could not list secrets") );
         return;
@@ -254,7 +260,6 @@ void DeletePasswordJobPrivate::scheduledStart()
     }
 
     lastEntry = ids.count() == 1;
-    */
 
     sid = secretsStore->createIdentifier(collection, key);
     if (!sid.isValid()) {
@@ -271,15 +276,12 @@ void DeletePasswordJobPrivate::scheduledStart()
         q->emitFinishedWithError( OtherError, messages[SecretDeleteError].arg(key).arg(collection) );
         return;
     } else {
-        if (lastEntry) {
-            qInfo() << "Last secret deleted, removing collection";
-            //QTimer::singleShot(200, [=](const QString& c = collection) { deleteCollection(c); });
-            //QTimer::singleShot(200, [=]() { deleteCollection(collection); });
-            //QTimer::singleShot(200, &secretsStore, &SailfishSecretStore::deleteCollection(collection));
-            QTimer::singleShot(200, [=]() { secretsStore->deleteCollection(collection); });
-            if (!qApp->instance()) qWarning() << "No Qt event loop, deletion oneshot will not trigger!";
-        }
         q->emitFinished();
+        if (lastEntry) {
+            qDebug() << "Last secret deleted, removing collection";
+            //QTimer::singleShot(200, [=]() { secretsStore->deleteCollection(collection); });
+            secretsStore->deleteCollection(collection);
+        }
         return;
     }
 

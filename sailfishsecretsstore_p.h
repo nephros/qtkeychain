@@ -13,6 +13,8 @@
 #include <Secrets/findsecretsrequest.h>
 #include <Secrets/lockcoderequest.h>
 
+#include <QTimer>
+
 //namespace QKeychain {
 
 class SailfishSecretStore : public QObject {
@@ -27,10 +29,9 @@ public:
     bool deleteCollection(const QString& name);
     bool getCollectionNames(QStringList* names);
     Sailfish::Secrets::Secret::Identifier createIdentifier(const QString& collection, const QString& name);
-    bool findSecret(const QString &service, const QString &collection, const QString &key, 
-                           QVector<Sailfish::Secrets::Secret::Identifier> *identifiers);
+    bool listSecrets(const QString &service, const QString &collection,
+                    QVector<Sailfish::Secrets::Secret::Identifier> *ids);
 
-    void requestUnlock() const;
 
     bool isInitialized() const { return manager->isInitialized(); };
 
@@ -44,7 +45,10 @@ public:
     Sailfish::Secrets::Result lastError() const { return m_lastError; };
 
 protected Q_SLOTS:
-    void checkCollectionForDeletion();
+    void maybeFinished(const Sailfish::Secrets::Request::Status &status,
+                       const Sailfish::Secrets::Result &result) const;
+    //void requestLock(const QString &collection) const;
+    void requestLock() const;
 
 protected:
     void setError(Sailfish::Secrets::Result r) { m_lastError = r; };
@@ -52,6 +56,10 @@ protected:
 private:
     Sailfish::Secrets::SecretManager *manager;
     Sailfish::Secrets::Result m_lastError;
+
+    static const uint lockTimeout = 1000 * 60 * 5;
+    QTimer* lockTimer;
+
     QString m_storagePlugin;
     QString m_encryptionPlugin;
     QString m_authPlugin;
