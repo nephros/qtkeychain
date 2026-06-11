@@ -93,12 +93,11 @@ static QStringList getCollectionNames()
     return request.collectionNames();
 }
 
-static Sailfish::Secrets::Secret::Identifier createIdentifier(const QString &collection, const QString &name, bool standalone=false)
+static Sailfish::Secrets::Secret::Identifier createIdentifier(const QString &collection, const QString &name)
 {
-    const QString coll = standalone ? "" : collection;
     return Sailfish::Secrets::Secret::Identifier(
         name,
-        coll,
+        collection,
         Sailfish::Secrets::SecretManager::DefaultEncryptedStoragePluginName);
 }
 
@@ -120,7 +119,7 @@ void ReadPasswordJobPrivate::scheduledStart() {
         return;
     }
 
-    sid = createIdentifier(collection, key, false);
+    sid = createIdentifier(collection, key);
     if (!sid.isValid()) {
         qWarning() << "Failed to create secret identifier!";
         q->emitFinishedWithError( EntryNotFound, tr("Failed to retrieve secret with ID %1 from collection %2").arg(key).arg(collection) );
@@ -201,7 +200,7 @@ void WritePasswordJobPrivate::scheduledStart()
         }
     }
 
-    sid = createIdentifier(collection, key, false);
+    sid = createIdentifier(collection, key);
     if (!sid.isValid()) {
         qWarning() << "Failed to create secret identifier!";
         q->emitFinishedWithError( OtherError, tr("Failed to create secret with ID %1 from collection %2").arg(key).arg(collection) );
