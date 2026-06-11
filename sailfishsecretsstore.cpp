@@ -2,14 +2,35 @@
 
 #include <QDebug>
 
-SailfishSecretStore::SailfishSecretStore()
-{
-    manager = new Sailfish::Secrets::SecretManager();
-}
+/*
+#include <Secrets/plugininforequest.h>
+#include <Secrets/plugininfo.h>
+static void printPlugins() {
+    Sailfish::Secrets::SecretManager manager;
+    Sailfish::Secrets::PluginInfoRequest request;
+    request.setManager(&manager);
+    request.startRequest();
+    request.waitForFinished();
+    if (request.result().code() != Sailfish::Secrets::Result::Failed) {
+        QStringList list;
+        foreach (Sailfish::Secrets::PluginInfo p , request.authenticationPlugins()) { list << p.displayName(); }
+        qInfo() << "Known plugins:\n========================"
+                << "\n  Authentication:\n" << list.join("\n"); list.clear(); 
 
-// SQLCipher plugin only accepts alphanumeric collection names:
-// Remove non-alphanumeric chars from string
-QString SailfishSecretStore::cleanString(const QString &toClean)
+                foreach (Sailfish::Secrets::PluginInfo p , request.storagePlugins()) { list << p.displayName(); }
+                qInfo() << "\n  Storage:\n" << list.join("\n"); list.clear(); 
+
+                foreach (Sailfish::Secrets::PluginInfo p , request.encryptionPlugins()) { list << p.displayName(); }
+                qInfo() << "\n  Encryption:\n" << list.join("\n"); list.clear();
+
+                foreach (Sailfish::Secrets::PluginInfo p , request.encryptedStoragePlugins()) { list << p.displayName(); }
+                qInfo() << "\n  Encrypted Storage:\n" << list.join("\n"); list.clear();
+        qInfo() << "\n========================";
+    }
+}
+*/
+
+static QString cleanString(const QString &toClean)
 {
     const QRegExp re(QStringLiteral("[-`~!@#$%^&*()_—+=|:;<>«»,.?/{}\'\"\\[\\]\\\\]"));
     QString toReturn = toClean;
@@ -17,64 +38,108 @@ QString SailfishSecretStore::cleanString(const QString &toClean)
     return toReturn;
 }
 
+
+SailfishSecretStore::SailfishSecretStore()
+{
+    manager = new Sailfish::Secrets::SecretManager();
+    /* setting these to makes storage go to SQLCipher-ed databases, under
+     * ~/.../Secrets/org.sailfishos.secrets.plugin.encryptedstorage.sqlcipher
+     *
+     * setting them both to the same one is not a bug, if the same one is
+     * DefaultEncryptedStoragePluginName a.k.a. "org.sailfishos.secrets.plugin.encryptedstorage.sqlcipher"
+     */
+    m_storagePlugin    = manager->DefaultEncryptedStoragePluginName;
+    m_encryptionPlugin = manager->DefaultEncryptedStoragePluginName;
+
+    m_authPlugin    = manager->DefaultAuthenticationPluginName;
+    //m_authPlugin    = QStringLiteral("org.sailfishos.secrets.plugin.authentication.inapp");
+    //m_authPlugin    = QStringLiteral("org.sailfishos.secrets.plugin.authentication.passwordagent");
+    //printPlugins();
+}
+
+void SailfishSecretStore::checkCollectionForDeletion()
+{
+}
+
+// SQLCipher plugin only accepts alphanumeric collection names:
+// Remove non-alphanumeric chars from string
+QString SailfishSecretStore::formatCollectionName(const QString &toClean) {
+    // "SQLCipher plugin only supports collection names shorter than 32 characters"
+    QString clean = cleanString(toClean);
+    QString result = QString("%1QtKeyChain").arg(clean);
+    if (result.length() > 32) {
+        clean.truncate(32);
+        result = clean;
+    }
+    return result;
+}
+
 bool SailfishSecretStore::createCollection(const QString& name)
 {
     Sailfish::Secrets::CreateCollectionRequest request;
+    bool result = false;
 
-    const QString cleanName = cleanString(name);
     request.setManager(manager);
-    request.setCollectionName(cleanName);
-    int diff = (name.length() - cleanName.length());
-    if (diff != 0) {
-        qInfo() << "Removed " << diff <<  "non-alphanumeric characters from name";
-    }
+    request.setCollectionName(name);
 
     // can not change app call with this:
     //request.setAccessControlMode(Sailfish::Secrets::SecretManager::OwnerOnlyMode);
     // not implemented!
     //request.setAccessControlMode(Sailfish::Secrets::SecretManager::SystemAccessControlMode);
     // this will still prompt:
-    request.setAccessControlMode(Sailfish::Secrets::SecretManager::NoAccessControlMode);
+    request.setAccessControlMode(manager->NoAccessControlMode);
 
     request.setCollectionLockType(Sailfish::Secrets::CreateCollectionRequest::DeviceLock);
-    request.setDeviceLockUnlockSemantic(Sailfish::Secrets::SecretManager::DeviceLockRelock);
-    //request.setDeviceLockUnlockSemantic(Sailfish::Secrets::SecretManager::DeviceLockVerifyLock);
+    //request.setDeviceLockUnlockSemantic(Sailfish::Secrets::SecretManager::DeviceLockKeepUnlocked);
+    //request.setDeviceLockUnlockSemantic(manager->DeviceLockRelock);
+    request.setDeviceLockUnlockSemantic(Sailfish::Secrets::SecretManager::DeviceLockVerifyLock);
 
-    request.setStoragePluginName(Sailfish::Secrets::SecretManager::DefaultEncryptedStoragePluginName);
-    request.setEncryptionPluginName(Sailfish::Secrets::SecretManager::DefaultEncryptedStoragePluginName);
+    /*
+    request.setCollectionLockType(Sailfish::Secrets::CreateCollectionRequest::CustomLock);
+    request.setCustomLockUnlockSemantic(manager->CustomLockAccessRelock);
+    request.setAuthenticationPluginName(m_authPlugin);
+    */
+
+    request.setAuthenticationPluginName(m_authPlugin);
+    request.setStoragePluginName(m_storagePlugin);
+    request.setEncryptionPluginName(m_encryptionPlugin);
 
     request.startRequest();
     request.waitForFinished();
-    if (request.result().code() == Sailfish::Secrets::Result::Failed) {
-        qDebug() << "Error:" << Q_FUNC_INFO << request.result().errorCode();
-        lastError = request.result();
-        return false;
+    if (request.result().code() == Sailfish::Secrets::Result::Succeeded) {
+        qDebug() << "Created new collection named" << name;
+        result = true;
+    } else if (request.result().code() == Sailfish::Secrets::Result::Pending) {
+        qCritical() << "Error:" << Q_FUNC_INFO << "Request wass still Pending, this should not happen";
+    } else {
+        auto code = request.result().errorCode();
+        if (code == Sailfish::Secrets::Result::ErrorCode::CollectionAlreadyExistsError) {
+            qDebug() << "Error (ignored):" << code;
+            result = true;
+        } else {
+            qWarning() << "Error:" << Q_FUNC_INFO << code << ":" << request.result().errorMessage();
+            setError(request.result());
+            //result = false;
+        }
     }
-    qDebug() << "Created new collection named" << cleanName << "for" << name;
-    //lastError = Sailfish::Secrets::Result();
-    return true;
+    return result;
 }
 
 bool SailfishSecretStore::deleteCollection(const QString& name)
 {
     Sailfish::Secrets::DeleteCollectionRequest request;
 
-    const QString cleanName = cleanString(name);
     request.setManager(manager);
-    request.setCollectionName(cleanName);
-    int diff = (name.length() - cleanName.length());
-    if (diff != 0) {
-        qInfo() << "Removed " << diff <<  "non-alphanumeric characters from name";
-    }
+    request.setCollectionName(name);
 
     request.startRequest();
     request.waitForFinished();
     if (request.result().code() == Sailfish::Secrets::Result::Failed) {
         qDebug() << "Error:" << Q_FUNC_INFO << request.result().errorCode();
-        lastError = request.result();
+        setError(request.result());
         return false;
     }
-    qDebug() << "Deleted collection named" << cleanName << "for" << name;
+    qDebug() << "Deleted collection named" << name;
     return true;
 }
 
@@ -84,12 +149,12 @@ bool SailfishSecretStore::getCollectionNames(QStringList* names)
 {
     Sailfish::Secrets::CollectionNamesRequest request;
     request.setManager(manager);
-    request.setStoragePluginName(Sailfish::Secrets::SecretManager::DefaultEncryptedStoragePluginName);
+    request.setStoragePluginName(m_storagePlugin);
     request.startRequest();
     request.waitForFinished();
     if (request.result().code() == Sailfish::Secrets::Result::Failed) {
         qDebug() << "Error:" << Q_FUNC_INFO << request.result().errorCode();
-        lastError = request.result();
+        setError(request.result());
         return false;
     }
     *names = request.collectionNames();
@@ -101,7 +166,7 @@ Sailfish::Secrets::Secret::Identifier SailfishSecretStore::createIdentifier(cons
     return Sailfish::Secrets::Secret::Identifier(
         name,
         collection,
-        Sailfish::Secrets::SecretManager::DefaultEncryptedStoragePluginName);
+        m_storagePlugin);
 }
 
 bool SailfishSecretStore::findSecret(const QString &service, const QString &collection, const QString &key, 
@@ -109,7 +174,7 @@ bool SailfishSecretStore::findSecret(const QString &service, const QString &coll
 {
     Sailfish::Secrets::FindSecretsRequest request;
     request.setManager(manager);
-    request.setStoragePluginName(Sailfish::Secrets::SecretManager::DefaultEncryptedStoragePluginName);
+    request.setStoragePluginName(this->m_storagePlugin);
 
     request.setCollectionName(collection);
 
@@ -124,39 +189,57 @@ bool SailfishSecretStore::findSecret(const QString &service, const QString &coll
     request.startRequest();
     request.waitForFinished();
     if (request.result().code() == Sailfish::Secrets::Result::Failed) {
-        qDebug() << "Search used" << filter.count() << "filter parameters";
-        qDebug() << "Error:" << Q_FUNC_INFO << request.result().errorCode();
-        lastError = request.result();
+        qDebug() << "Error:" << request.result().errorCode()
+                 << request.result().errorMessage();
+        setError(request.result());
         return false;
     }
-    qDebug() << QString("Found %1 secrets in collection %2").arg(request.identifiers().length()).arg(collection);
+//    qDebug() << QString("Found %1 secrets in collection %2").arg(request.identifiers().length()).arg(collection);
     *identifiers = request.identifiers();
     return true;
 }
 
 
-Sailfish::Secrets::StoredSecretRequest* SailfishSecretStore::getReadRequest(const Sailfish::Secrets::Secret::Identifier &sid)
+Sailfish::Secrets::StoredSecretRequest* SailfishSecretStore::getReadRequest(const Sailfish::Secrets::Secret::Identifier &sid) const
 {
     auto *request = new Sailfish::Secrets::StoredSecretRequest();
     request->setManager(manager);
     request->setIdentifier(sid);
-    request->setUserInteractionMode(Sailfish::Secrets::SecretManager::SystemInteraction);
+    request->setUserInteractionMode(manager->SystemInteraction);
     return request;
 }
 
-Sailfish::Secrets::StoreSecretRequest* SailfishSecretStore::getWriteRequest(const Sailfish::Secrets::Secret &secret)
+Sailfish::Secrets::StoreSecretRequest* SailfishSecretStore::getWriteRequest(const Sailfish::Secrets::Secret &secret) const
 {
     auto *request = new Sailfish::Secrets::StoreSecretRequest();
     request->setManager(manager);
     request->setSecretStorageType(Sailfish::Secrets::StoreSecretRequest::CollectionSecret);
-    request->setUserInteractionMode(Sailfish::Secrets::SecretManager::SystemInteraction);
+    request->setUserInteractionMode(manager->SystemInteraction);
+    request->setAuthenticationPluginName(m_authPlugin);
     request->setSecret(secret);
     return request;
 }
-Sailfish::Secrets::DeleteSecretRequest* SailfishSecretStore::getDeleteRequest(const Sailfish::Secrets::Secret::Identifier &sid)
+
+Sailfish::Secrets::DeleteSecretRequest* SailfishSecretStore::getDeleteRequest(const Sailfish::Secrets::Secret::Identifier &sid) const
 {
     auto *request = new Sailfish::Secrets::DeleteSecretRequest();
     request->setManager(manager);
-    request->setUserInteractionMode(Sailfish::Secrets::SecretManager::SystemInteraction);
+    request->setUserInteractionMode(manager->SystemInteraction);
+    request->setIdentifier(sid);
+    request->connect(request, SIGNAL(statusChanged()),
+                     this, SLOT(checkCollectionForDeletion()));
     return request;
+}
+
+Sailfish::Secrets::LockCodeRequest* SailfishSecretStore::getUnlockRequest(const Sailfish::Secrets::Secret::Identifier &sid) const
+{
+    auto *request = new Sailfish::Secrets::LockCodeRequest();
+    request->setManager(manager);
+    request->setUserInteractionMode(manager->SystemInteraction);
+    return request;
+}
+
+void SailfishSecretStore::requestUnlock() const
+{
+//    auto request = getUnlockRequest(const Sailfish::Secrets::Secret::Identifier &sid);
 }

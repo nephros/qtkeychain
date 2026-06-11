@@ -11,16 +11,17 @@
 #include <Secrets/storesecretrequest.h>
 #include <Secrets/deletesecretrequest.h>
 #include <Secrets/findsecretsrequest.h>
+#include <Secrets/lockcoderequest.h>
 
 //namespace QKeychain {
 
-class SailfishSecretStore {
-    Q_DECLARE_TR_FUNCTIONS(QKeychain::SailfishSecretStore)
-
+class SailfishSecretStore : public QObject {
+    Q_OBJECT
+    //Q_DECLARE_TR_FUNCTIONS(QKeychain::SailfishSecretStore)
 public:
     explicit SailfishSecretStore();
 
-    static QString cleanString(const QString &toClean);
+    static QString formatCollectionName(const QString &toClean);
 
     bool createCollection(const QString& name);
     bool deleteCollection(const QString& name);
@@ -29,16 +30,31 @@ public:
     bool findSecret(const QString &service, const QString &collection, const QString &key, 
                            QVector<Sailfish::Secrets::Secret::Identifier> *identifiers);
 
-    bool isInitialized() { return manager->isInitialized(); };
+    void requestUnlock() const;
 
-    Sailfish::Secrets::StoredSecretRequest* getReadRequest(const Sailfish::Secrets::Secret::Identifier &sid);
-    Sailfish::Secrets::StoreSecretRequest*  getWriteRequest(const Sailfish::Secrets::Secret &s);
-    Sailfish::Secrets::DeleteSecretRequest* getDeleteRequest(const Sailfish::Secrets::Secret::Identifier &sid);
+    bool isInitialized() const { return manager->isInitialized(); };
 
-    Sailfish::Secrets::Result getLastError() { return lastError; };
+    Sailfish::Secrets::StoredSecretRequest* getReadRequest(const Sailfish::Secrets::Secret::Identifier &sid) const;
+    Sailfish::Secrets::StoreSecretRequest*  getWriteRequest(const Sailfish::Secrets::Secret &s) const;
+    Sailfish::Secrets::DeleteSecretRequest* getDeleteRequest(const Sailfish::Secrets::Secret::Identifier &sid) const;
+
+    Sailfish::Secrets::LockCodeRequest* getUnlockRequest(const Sailfish::Secrets::Secret::Identifier &sid) const;
+
+
+    Sailfish::Secrets::Result lastError() const { return m_lastError; };
+
+protected Q_SLOTS:
+    void checkCollectionForDeletion();
+
+protected:
+    void setError(Sailfish::Secrets::Result r) { m_lastError = r; };
+
 private:
     Sailfish::Secrets::SecretManager *manager;
-    Sailfish::Secrets::Result lastError;
+    Sailfish::Secrets::Result m_lastError;
+    QString m_storagePlugin;
+    QString m_encryptionPlugin;
+    QString m_authPlugin;
 
 };
 
