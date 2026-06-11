@@ -20,6 +20,7 @@
 #include <Secrets/storedsecretrequest.h>
 #include <Secrets/storesecretrequest.h>
 #include <Secrets/deletesecretrequest.h>
+#include <Secrets/findsecretsrequest.h>
 
 //#include <QDBusError>
 using namespace QKeychain;
@@ -99,6 +100,29 @@ static Sailfish::Secrets::Secret::Identifier createIdentifier(const QString &col
         name,
         collection,
         Sailfish::Secrets::SecretManager::DefaultEncryptedStoragePluginName);
+}
+
+static QVector<Sailfish::Secrets::Secret::Identifier> findSecret(const QString &service, const QString &collection, const QString &key)
+{
+    Sailfish::Secrets::FindSecretsRequest request;
+    request.setManager(&manager);
+    request.setStoragePluginName(Sailfish::Secrets::SecretManager::DefaultEncryptedStoragePluginName);
+
+    Sailfish::Secrets::Secret::FilterData filter;
+    filter.insert(QLatin1String("service"), service);
+    if (!QCoreApplication::organizationName().isEmpty())
+        filter.insert(QLatin1String("org"), QCoreApplication::organizationName());
+    if (!QCoreApplication::applicationName().isEmpty())
+        filter.insert(QLatin1String("app"), QCoreApplication::applicationName());
+
+    request.setFilter(filter);
+    request.startRequest();
+    request.waitForFinished();
+    if (request.result().code() == Sailfish::Secrets::Result::Failed) {
+        qWarning() << QString("Failed to list secrets in collection %1:").arg(collection)
+                   << request.result().errorMessage();
+    }
+    return request.identifiers();
 }
 
 void ReadPasswordJobPrivate::scheduledStart() {
@@ -197,6 +221,14 @@ void WritePasswordJobPrivate::scheduledStart()
             qWarning() << "Failed to create secret collection!" << metaEnum.valueToKey(ok);
             q->emitFinishedWithError( OtherError, tr("Failed to create secret collection") );
             return;
+        }
+    } else {
+    /* FIXME/TODO: storing will fail if the collection already has a secret with the same key.
+     * So, check for existence before writing.
+    */
+        QVector<Sailfish::Secrets::Secret::Identifier> ids = findSecret(service, collection, key);
+        if (!ids.isEmpty()) {
+            q->emitFinishedWithError( NotImplemented, tr("Updating secrets is not supported") );
         }
     }
 
