@@ -182,11 +182,9 @@ void WritePasswordJobPrivate::scheduledStart()
     secret.setName(key);
     if (this->mode == Mode::Binary)
         secret.setType(Sailfish::Secrets::Secret::TypeBlob);
-    if (!QCoreApplication::organizationName().isEmpty())
-        secret.setFilterData(QLatin1String("org"), QCoreApplication::organizationName());
-    if (!QCoreApplication::applicationName().isEmpty())
-        secret.setFilterData(QLatin1String("app"), QCoreApplication::applicationName());
-    secret.setFilterData(QLatin1String("service"), service);
+
+    auto filter = secretsStore->createFilterData(service);
+    secret.setFilterData(filter);
 
     // Request that the secret be securely stored.
     request = secretsStore->getWriteRequest(secret);

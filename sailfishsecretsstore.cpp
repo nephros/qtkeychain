@@ -208,12 +208,7 @@ bool SailfishSecretStore::listSecrets(const QString &service, const QString &col
 
     request.setCollectionName(collection);
 
-    Sailfish::Secrets::Secret::FilterData filter; //  QMap<QString,QString>
-    if (!QCoreApplication::organizationName().isEmpty())
-        filter.insert(QLatin1String("org"), QCoreApplication::organizationName());
-    if (!QCoreApplication::applicationName().isEmpty())
-        filter.insert(QLatin1String("app"), QCoreApplication::applicationName());
-    filter.insert(QLatin1String("service"), service);
+    auto filter = createFilterData(service);
     request.setFilter(filter);
 
     request.startRequest();
@@ -278,4 +273,17 @@ void SailfishSecretStore::requestLock() const
 //  request.setLockCodeTarget(collection);
   request.setLockCodeTargetType(Sailfish::Secrets::LockCodeRequest::ExtensionPlugin);
   request.setLockCodeTarget(m_storagePlugin);
+}
+
+Sailfish::Secrets::Secret::FilterData SailfishSecretStore::createFilterData(const QString &service) const
+{
+    Sailfish::Secrets::Secret::FilterData filter;
+
+    filter.insert(QStringLiteral("writer"), QStringLiteral("QtKeychain"));
+    filter.insert(QStringLiteral("service"), service);
+    if (!QCoreApplication::organizationName().isEmpty())
+        filter.insert(QStringLiteral("org"), QCoreApplication::organizationName());
+    if (!QCoreApplication::applicationName().isEmpty())
+        filter.insert(QStringLiteral("app"), QCoreApplication::applicationName());
+    return filter;
 }

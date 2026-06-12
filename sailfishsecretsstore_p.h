@@ -27,6 +27,9 @@ public:
 
     static QString formatCollectionName(const QString &toClean);
 
+    //  QMap<QString,QString>
+    Sailfish::Secrets::Secret::FilterData createFilterData(const QString &service) const;
+
     bool deleteCollection(const QString& name);
     bool getCollection(const QString& name);
     Sailfish::Secrets::Secret::Identifier createIdentifier(const QString& collection, const QString& name);
