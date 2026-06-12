@@ -87,7 +87,7 @@ QString SailfishSecretStore::formatCollectionName(const QString &toClean) {
 bool SailfishSecretStore::getCollection(const QString& name)
 {
     QStringList collections;
-    if (!getCollectionNames(&collections)) {
+    if (!listCollections(&collections)) {
         qWarning() << "Failed to open secret collection!";
         return false;
     }
@@ -173,7 +173,7 @@ bool SailfishSecretStore::deleteCollection(const QString& name)
 
 // FIXME: This can fail to open the collection for various reasons.
 //        e.g. requires device unlock but that's not possible.
-bool SailfishSecretStore::getCollectionNames(QStringList* names)
+bool SailfishSecretStore::listCollections(QStringList* names)
 {
     Sailfish::Secrets::CollectionNamesRequest request;
     request.setManager(manager);

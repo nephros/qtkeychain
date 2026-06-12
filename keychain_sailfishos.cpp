@@ -61,16 +61,13 @@ void ReadPasswordJobPrivate::scheduledStart() {
         return;
     }
 
-    QStringList collections;
-    bool ok = secretsStore->getCollectionNames(&collections);
-    if (!ok) {
-        qWarning() << "Failed to list secret collections:" << secretsStore->lastError().errorMessage();
-        q->emitFinishedWithError( OtherError, messages[CollectionOpenError] );
-        return;
-    }
-    if (collections.isEmpty() || !collections.contains(collection)) {
-        qWarning() << "Failed to find secrets collection!";
-        q->emitFinishedWithError( EntryNotFound, messages[CollectionListError].arg(collection) );
+    if (!secretsStore->getCollection(collection)) {
+//        qWarning() << "Failed to list secret collections:" << secretsStore->lastError().errorMessage();
+        if (secretsStore->lastError().errorCode() == Sailfish::Secrets::Result::CollectionIsLockedError) {
+            q->emitFinishedWithError( AccessDenied, messages[CollectionOpenError] );
+        } else {
+            q->emitFinishedWithError( OtherError, messages[CollectionOpenError] );
+        }
         return;
     }
 
@@ -82,7 +79,6 @@ void ReadPasswordJobPrivate::scheduledStart() {
     }
     request = secretsStore->getReadRequest(sid);
     request->startRequest();
-    // TODO: Use a callback:
     request->waitForFinished();
     if (request->result().code() == Sailfish::Secrets::Result::Failed) {
         qWarning() << "Failed to retrieve secret:"

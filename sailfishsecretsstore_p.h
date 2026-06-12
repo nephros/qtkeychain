@@ -23,25 +23,21 @@ class SailfishSecretStore : public QObject {
 public:
     explicit SailfishSecretStore();
 
+    bool isInitialized() const { return manager->isInitialized(); };
+
     static QString formatCollectionName(const QString &toClean);
 
-    bool createCollection(const QString& name);
     bool deleteCollection(const QString& name);
     bool getCollection(const QString& name);
-    bool getCollectionNames(QStringList* names);
     Sailfish::Secrets::Secret::Identifier createIdentifier(const QString& collection, const QString& name);
     bool listSecrets(const QString &service, const QString &collection,
                     QVector<Sailfish::Secrets::Secret::Identifier> *ids);
-
-
-    bool isInitialized() const { return manager->isInitialized(); };
 
     Sailfish::Secrets::StoredSecretRequest* getReadRequest(const Sailfish::Secrets::Secret::Identifier &sid) const;
     Sailfish::Secrets::StoreSecretRequest*  getWriteRequest(const Sailfish::Secrets::Secret &s) const;
     Sailfish::Secrets::DeleteSecretRequest* getDeleteRequest(const Sailfish::Secrets::Secret::Identifier &sid) const;
 
-    Sailfish::Secrets::LockCodeRequest* getUnlockRequest(const Sailfish::Secrets::Secret::Identifier &sid) const;
-
+//    Sailfish::Secrets::LockCodeRequest* getUnlockRequest(const Sailfish::Secrets::Secret::Identifier &sid) const;
 
     Sailfish::Secrets::Result lastError() const { return m_lastError; };
 
@@ -65,6 +61,8 @@ private:
     QString m_encryptionPlugin;
     QString m_authPlugin;
 
+    bool createCollection(const QString& name);
+    bool listCollections(QStringList* names);
 };
 
 //} // namespace QKeychain
