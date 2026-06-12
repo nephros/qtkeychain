@@ -233,17 +233,19 @@ void WritePasswordJobPrivate::scheduledStart()
     // update case: use found identifier:
     foreach(auto id, ids) {
         if (id.name() == key) {
-            qDebug() << "Want to update secret:"
-                     << "Identifier: " << id.name();
-            sid = id;
+            // FIXME: for some reason, the backend doesn't recognize the update.
+            // So, delete the secret first:
+            auto delrequest = secretsStore->getDeleteRequest(id);
+            delrequest->startRequest();
+            delrequest->waitForFinished();
+            // FIXME: handle errors
             break;
         }
     }
-    if (!sid.isValid()) {
-        sid = secretsStore->createIdentifier(collection, key);
-        qDebug() << "Creating new secret"
-                 << "Identifier:" << sid.name();
-    }
+
+    sid = secretsStore->createIdentifier(collection, key);
+    qDebug() << "Creating new secret"
+             << "Identifier:" << sid.name();
 
     if (!sid.isValid()) {
         qWarning() << "Failed to create valid secret identifier!";
