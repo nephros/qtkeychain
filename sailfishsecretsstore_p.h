@@ -15,11 +15,16 @@
 
 #include <QTimer>
 
-//namespace QKeychain {
-
 class SailfishSecretStore : public QObject {
     Q_OBJECT
-    //Q_DECLARE_TR_FUNCTIONS(QKeychain::SailfishSecretStore)
+    Q_PROPERTY(bool pruneEmptyCollections MEMBER pruneEmptyCollections)
+    Q_PROPERTY(Sailfish::Secrets::Result lastError READ lastError NOTIFY errorChanged)
+    /*
+    Q_PROPERTY(QString storagePlugin         MEMBER m_storagePlugin)
+    Q_PROPERTY(QString encryptionPlugin      MEMBER m_encryptionPlugin)
+    Q_PROPERTY(QString authPlugin            MEMBER m_authPlugin)
+    */
+
 public:
     explicit SailfishSecretStore();
 
@@ -27,22 +32,20 @@ public:
 
     static QString formatCollectionName(const QString &toClean);
 
-    //  QMap<QString,QString>
-    Sailfish::Secrets::Secret::FilterData createFilterData(const QString &service) const;
-
     bool deleteCollection(const QString& name);
     bool getCollection(const QString& name);
-    Sailfish::Secrets::Secret::Identifier createIdentifier(const QString& collection, const QString& name);
+    Sailfish::Secrets::Secret::Identifier createIdentifier(const QString& collection, const QString& name) const;
     bool listSecrets(const QString &service, const QString &collection,
                     QVector<Sailfish::Secrets::Secret::Identifier> *ids);
 
     Sailfish::Secrets::StoredSecretRequest* getReadRequest(const Sailfish::Secrets::Secret::Identifier &sid) const;
-    Sailfish::Secrets::StoreSecretRequest*  getWriteRequest(const Sailfish::Secrets::Secret &s) const;
+    Sailfish::Secrets::StoreSecretRequest*  getWriteRequest(const QString& service, Sailfish::Secrets::Secret* s) const;
     Sailfish::Secrets::DeleteSecretRequest* getDeleteRequest(const Sailfish::Secrets::Secret::Identifier &sid) const;
 
-//    Sailfish::Secrets::LockCodeRequest* getUnlockRequest(const Sailfish::Secrets::Secret::Identifier &sid) const;
-
     Sailfish::Secrets::Result lastError() const { return m_lastError; };
+
+Q_SIGNALS:
+    void errorChanged() const;
 
 protected Q_SLOTS:
     void maybeFinished(const Sailfish::Secrets::Request::Status &status,
@@ -51,11 +54,18 @@ protected Q_SLOTS:
     void requestLock() const;
 
 protected:
-    void setError(Sailfish::Secrets::Result r) { m_lastError = r; };
+    void setError(Sailfish::Secrets::Result r) {
+        if ( r != m_lastError) {
+            m_lastError = r;
+            emit errorChanged();
+        }
+    };
 
 private:
     Sailfish::Secrets::SecretManager *manager;
     Sailfish::Secrets::Result m_lastError;
+
+    bool pruneEmptyCollections = true;
 
     static const uint lockTimeout = 1000 * 60 * 5;
     QTimer* lockTimer;
@@ -66,9 +76,9 @@ private:
 
     bool createCollection(const QString& name);
     bool listCollections(QStringList* names);
+    //  QMap<QString,QString>
+    Sailfish::Secrets::Secret::FilterData createFilterData(const QString &service) const;
+
 };
 
-//} // namespace QKeychain
-
 #endif // QTKEYCHAIN_SFOSSSTORE_P_H
-
