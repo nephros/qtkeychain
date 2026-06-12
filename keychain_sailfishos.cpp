@@ -20,7 +20,7 @@ using namespace QKeychain;
 
 static SailfishSecretStore *secretsStore = new SailfishSecretStore();
 
-enum SailfishSecretError {
+enum SailfishSecretStorageError {
     CollectionCreateError,
     CollectionListError,
     CollectionOpenError,
@@ -34,7 +34,7 @@ enum SailfishSecretError {
     SecretUpdateError,
 };
 
-static const QMap<enum SailfishSecretError, QString> messages {
+static const QMap<enum SailfishSecretStorageError, QString> messages {
         { ManagerError,          QT_TR_NOOP("Failed to connect to Sailfish Secret manager!") },
 
         { CollectionCreateError, QT_TR_NOOP("Failed to create password store")  },
