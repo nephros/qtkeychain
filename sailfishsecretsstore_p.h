@@ -22,7 +22,6 @@
 
 class SailfishSecretStore : public QObject {
     Q_OBJECT
-    Q_PROPERTY(bool pruneEmptyCollections MEMBER pruneEmptyCollections)
     Q_PROPERTY(Sailfish::Secrets::Result lastError READ lastError NOTIFY errorChanged)
     /*
     Q_PROPERTY(QString storagePlugin         MEMBER m_storagePlugin)
@@ -67,8 +66,6 @@ protected:
 private:
     Sailfish::Secrets::SecretManager *manager;
     Sailfish::Secrets::Result m_lastError;
-
-    bool pruneEmptyCollections = true;
 
     static const uint lockTimeout = 1000 * 60 * 5;
     QTimer* lockTimer;
