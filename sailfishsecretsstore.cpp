@@ -30,15 +30,6 @@ static void printPlugins() {
 }
 */
 
-static QString cleanString(const QString &toClean)
-{
-    const QRegExp re(QStringLiteral("[-`~!@#$%^&*()_—+=|:;<>«»,.?/{}\'\"\\[\\]\\\\]"));
-    QString toReturn = toClean;
-    toReturn.replace(re, "0");
-    return toReturn;
-}
-
-
 SailfishSecretStore::SailfishSecretStore()
 {
     manager = new Sailfish::Secrets::SecretManager();
@@ -60,17 +51,13 @@ SailfishSecretStore::SailfishSecretStore()
     lockTimer->connect(lockTimer, SIGNAL(timeout()), this, SLOT(requestLock()));
 }
 
-// SQLCipher plugin only accepts alphanumeric collection names:
-// Remove non-alphanumeric chars from string
+// SQLCipher plugin only accepts alphanumeric collection names.
+// SQLCipher plugin only supports collection names shorter than 32 characters
 QString SailfishSecretStore::formatCollectionName(const QString &toClean) {
-    // "SQLCipher plugin only supports collection names shorter than 32 characters"
-    QString clean = cleanString(toClean);
-    QString result = QString("%1QtKeyChain").arg(clean);
-    if (result.length() > 32) {
-        clean.truncate(32);
-        result = clean;
-    }
-    return result;
+    const QRegExp re(QStringLiteral("[-`~!@#$%^&*()_—+=|:;<>«»,.?/{}\'\"\\[\\]\\\\]"));
+    QString clean = QString("%1QKeychain").arg(toClean);
+    clean.replace(re, "0").truncate(32);
+    return clean;
 }
 
 /* Look for existing, if not found create new, collection */
