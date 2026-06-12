@@ -189,7 +189,7 @@ bool SailfishSecretStore::listCollections(QStringList* names)
     return true;
 }
 
-Sailfish::Secrets::Secret::Identifier SailfishSecretStore::createIdentifier(const QString &collection, const QString &name)
+Sailfish::Secrets::Secret::Identifier SailfishSecretStore::createIdentifier(const QString &collection, const QString &name) const
 {
     return Sailfish::Secrets::Secret::Identifier(
         name,
@@ -238,14 +238,26 @@ Sailfish::Secrets::StoredSecretRequest* SailfishSecretStore::getReadRequest(cons
     return request;
 }
 
-Sailfish::Secrets::StoreSecretRequest* SailfishSecretStore::getWriteRequest(const Sailfish::Secrets::Secret &secret) const
+Sailfish::Secrets::StoreSecretRequest* SailfishSecretStore::getWriteRequest(const QString& service, Sailfish::Secrets::Secret* secret) const
 {
     auto *request = new Sailfish::Secrets::StoreSecretRequest();
     request->setManager(manager);
     request->setSecretStorageType(Sailfish::Secrets::StoreSecretRequest::CollectionSecret);
     request->setUserInteractionMode(manager->SystemInteraction);
     request->setAuthenticationPluginName(m_authPlugin);
-    request->setSecret(secret);
+
+    /*
+    Sailfish::Secrets::InteractionParameters params = request->interactionParameters();
+    QString prompt = QStringLiteral("%1 asks on behalf of %1 to store the Password for %3").arg("QtKeychain").arg(QCoreApplication::applicationName());
+    params.setApplicationId(QCoreApplication::applicationName());
+    params.setPromptText(prompt);
+    request->setInteractionParameters(params);
+    */
+
+    auto filter = createFilterData(service);
+    secret->setFilterData(filter);
+
+    request->setSecret(*secret);
     QObject::connect(request, &Sailfish::Secrets::Request::statusChanged,
                      this, [=](){maybeFinished(request->status(), request->result());});
     return request;
@@ -265,14 +277,15 @@ Sailfish::Secrets::DeleteSecretRequest* SailfishSecretStore::getDeleteRequest(co
 //void SailfishSecretStore::requestLock(const QString &collection) const
 void SailfishSecretStore::requestLock() const
 {
-  Sailfish::Secrets::LockCodeRequest request;
-  request.setManager(manager);
-  request.setUserInteractionMode(manager->PreventInteraction);
-  request.setLockCodeRequestType(Sailfish::Secrets::LockCodeRequest::ForgetLockCode);
-//  request.setLockCodeTargetType(Sailfish::Secrets::LockCodeRequest::MetadataDatabase);
-//  request.setLockCodeTarget(collection);
-  request.setLockCodeTargetType(Sailfish::Secrets::LockCodeRequest::ExtensionPlugin);
-  request.setLockCodeTarget(m_storagePlugin);
+    qDebug() << "Locking requested!";
+    Sailfish::Secrets::LockCodeRequest request;
+    request.setManager(manager);
+    request.setUserInteractionMode(manager->PreventInteraction);
+//    request.setLockCodeRequestType(Sailfish::Secrets::LockCodeRequest::ForgetLockCode);
+//    request.setLockCodeTargetType(Sailfish::Secrets::LockCodeRequest::MetadataDatabase);
+//    request.setLockCodeTarget(collection);
+    request.setLockCodeTargetType(Sailfish::Secrets::LockCodeRequest::ExtensionPlugin);
+    request.setLockCodeTarget(m_storagePlugin);
 }
 
 Sailfish::Secrets::Secret::FilterData SailfishSecretStore::createFilterData(const QString &service) const

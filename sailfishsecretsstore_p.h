@@ -1,6 +1,11 @@
 #ifndef QTKEYCHAIN_SFOSSSTORE_P_H
 #define QTKEYCHAIN_SFOSSSTORE_P_H
 
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic warning "-Wall"
+#pragma GCC diagnostic warning "-Wextra"
+#endif
+
 #include "keychain_p.h"
 
 #include <Secrets/secretmanager.h>
