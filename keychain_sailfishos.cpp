@@ -273,26 +273,6 @@ void WritePasswordJobPrivate::scheduledStart()
                     });
     request->startRequest();
     request->waitForFinished();
-    /*
-    if (request->result().code() == Sailfish::Secrets::Result::Failed) {
-        qWarning() << "Failed to store secret:"
-                   << request->result().errorCode()
-                   << request->result().errorMessage();
-        if (request->result().errorCode() == Sailfish::Secrets::Result::DatabaseQueryError) {
-            q->emitFinishedWithError( CouldNotDeleteEntry, messages[SecretWriteError].arg(request->result().errorMessage()) );
-        } else {
-            q->emitFinishedWithError( OtherError, messages[SecretWriteError].arg(request->result().errorMessage()) );
-        }
-        return;
-    } else {
-        qDebug() << "Saved secret"
-                 << "Identifier:" << request->secret().identifier().name()
-                 << "Name:" << request->secret().name();
-        q->emitFinished();
-        return;
-    }
-    q->emitFinishedWithError( OtherError, tr("Unknown error") );
-    */
 }
 
 /*
