@@ -39,6 +39,7 @@ public:
     bool deleteCollection(const QString& name);
     bool getCollection(const QString& name);
     Sailfish::Secrets::Secret::Identifier createIdentifier(const QString& collection, const QString& name) const;
+    Sailfish::Secrets::Secret* createSecret(const QString& collection, const QString& name) const;
     bool listSecrets(const QString &service, const QString &collection,
                     QVector<Sailfish::Secrets::Secret::Identifier> *ids);
 

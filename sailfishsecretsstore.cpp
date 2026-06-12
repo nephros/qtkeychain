@@ -166,6 +166,14 @@ bool SailfishSecretStore::listCollections(QStringList* names)
     return true;
 }
 
+Sailfish::Secrets::Secret* SailfishSecretStore::createSecret(const QString &collection, const QString &name) const
+{
+    return new Sailfish::Secrets::Secret(
+        name,
+        collection,
+        m_storagePlugin);
+}
+
 Sailfish::Secrets::Secret::Identifier SailfishSecretStore::createIdentifier(const QString &collection, const QString &name) const
 {
     return Sailfish::Secrets::Secret::Identifier(

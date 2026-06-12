@@ -243,19 +243,7 @@ void WritePasswordJobPrivate::scheduledStart()
         }
     }
 
-    sid = secretsStore->createIdentifier(collection, key);
-    qDebug() << "Creating new secret"
-             << "Identifier:" << sid.name();
-
-    if (!sid.isValid()) {
-        qWarning() << "Failed to create valid secret identifier!";
-        q->emitFinishedWithError( OtherError, tr("Failed to create identifier!"));
-        return;
-    }
-
-    secret = new Sailfish::Secrets::Secret();
-    secret->setIdentifier(sid);
-    secret->setCollectionName(collection);
+    secret = secretsStore->createSecret(collection, key);
     secret->setData(data);
     if (this->mode == Mode::Binary)
         secret->setType(Sailfish::Secrets::Secret::TypeBlob);
