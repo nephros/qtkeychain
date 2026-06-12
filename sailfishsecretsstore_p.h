@@ -53,8 +53,6 @@ Q_SIGNALS:
     void errorChanged() const;
 
 protected Q_SLOTS:
-    void maybeFinished(const Sailfish::Secrets::Request::Status &status,
-                       const Sailfish::Secrets::Result &result) const;
     //void requestLock(const QString &collection) const;
     void requestLock() const;
 

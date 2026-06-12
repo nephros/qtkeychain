@@ -60,16 +60,6 @@ SailfishSecretStore::SailfishSecretStore()
     lockTimer->connect(lockTimer, SIGNAL(timeout()), this, SLOT(requestLock()));
 }
 
-void SailfishSecretStore::maybeFinished(const Sailfish::Secrets::Request::Status &status,
-                                        const Sailfish::Secrets::Result &result) const
-{
-    if ( (status == Sailfish::Secrets::Request::Status::Finished)
-      && (result.code() != Sailfish::Secrets::Result::ResultCode::Pending) ) {
-        qDebug() << "Request finished";
-        lockTimer->start();
-    }
-}
-
 // SQLCipher plugin only accepts alphanumeric collection names:
 // Remove non-alphanumeric chars from string
 QString SailfishSecretStore::formatCollectionName(const QString &toClean) {
@@ -233,8 +223,6 @@ Sailfish::Secrets::StoredSecretRequest* SailfishSecretStore::getReadRequest(cons
     request->setManager(manager);
     request->setIdentifier(sid);
     request->setUserInteractionMode(manager->SystemInteraction);
-    QObject::connect(request, &Sailfish::Secrets::Request::statusChanged,
-                     this, [=](){maybeFinished(request->status(), request->result());});
     return request;
 }
 
@@ -258,8 +246,6 @@ Sailfish::Secrets::StoreSecretRequest* SailfishSecretStore::getWriteRequest(cons
     secret->setFilterData(filter);
 
     request->setSecret(*secret);
-    QObject::connect(request, &Sailfish::Secrets::Request::statusChanged,
-                     this, [=](){maybeFinished(request->status(), request->result());});
     return request;
 }
 
@@ -269,8 +255,6 @@ Sailfish::Secrets::DeleteSecretRequest* SailfishSecretStore::getDeleteRequest(co
     request->setManager(manager);
     request->setUserInteractionMode(manager->SystemInteraction);
     request->setIdentifier(sid);
-    QObject::connect(request, &Sailfish::Secrets::Request::statusChanged,
-                     this, [=](){maybeFinished(request->status(), request->result());});
     return request;
 }
 
