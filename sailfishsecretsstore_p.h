@@ -27,6 +27,7 @@ public:
 
     bool createCollection(const QString& name);
     bool deleteCollection(const QString& name);
+    bool getCollection(const QString& name);
     bool getCollectionNames(QStringList* names);
     Sailfish::Secrets::Secret::Identifier createIdentifier(const QString& collection, const QString& name);
     bool listSecrets(const QString &service, const QString &collection,

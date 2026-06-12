@@ -140,26 +140,14 @@ void WritePasswordJobPrivate::scheduledStart()
         return;
     }
 
-
-    // check for collection, create if necessary
-    QStringList collections;
-    bool found = secretsStore->getCollectionNames(&collections);
-    if (!found) {
-        qWarning() << "Failed to open secret collection!";
-        q->emitFinishedWithError( OtherError, messages[CollectionOpenError] );
-        return;
-    }
-    if (!collections.contains(collection)) {
-        bool ok = secretsStore->createCollection(collection);
-        if (!ok) {
-            qWarning() << "Failed to create secret collection!";
+    /* check for collection, create if necessary */
+    if (!secretsStore->getCollection(collection)) {
             if (secretsStore->lastError().errorCode() == Sailfish::Secrets::Result::CollectionIsLockedError) {
                 q->emitFinishedWithError( AccessDenied, messages[CollectionCreateError] );
             } else {
                 q->emitFinishedWithError( OtherError, messages[CollectionCreateError] );
             }
-            return;
-        }
+        return;
     } else {
         /* FIXME/TODO: storing will fail if the collection already has a secret with the same key.
          * So, check for existence before writing.

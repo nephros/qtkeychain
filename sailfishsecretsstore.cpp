@@ -83,6 +83,23 @@ QString SailfishSecretStore::formatCollectionName(const QString &toClean) {
     return result;
 }
 
+/* Look for existing, if not found create new, collection */
+bool SailfishSecretStore::getCollection(const QString& name)
+{
+    QStringList collections;
+    if (!getCollectionNames(&collections)) {
+        qWarning() << "Failed to open secret collection!";
+        return false;
+    }
+    if (collections.contains(name))
+        return true;
+    if (createCollection(name))
+        return true;
+
+    qWarning() << "Failed to create secret collection!";
+    return false;
+}
+
 bool SailfishSecretStore::createCollection(const QString& name)
 {
     Sailfish::Secrets::CreateCollectionRequest request;
