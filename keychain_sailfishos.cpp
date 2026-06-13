@@ -216,6 +216,9 @@ void ReadPasswordJobPrivate::scheduledStart() {
         return;
     }
 
+    QObject::connect(secretsStore, &SailfishSecretStore::errorChanged,
+                     [=]() { onErrorChanged(); });
+
     if (!secretsStore->getCollection(collection)) {
 //        qWarning() << "Failed to list secret collections:" << secretsStore->lastError().errorMessage();
 //        auto ec = secretsStore->lastError().errorCode();
@@ -288,6 +291,9 @@ void WritePasswordJobPrivate::scheduledStart()
         //q->emitFinishedWithError( NoBackendAvailable, messages[Manager] );
         return;
     }
+
+    QObject::connect(secretsStore, &SailfishSecretStore::errorChanged,
+                     [=]() { onErrorChanged(); });
 
     /* check for collection, create if necessary */
     if (!secretsStore->getCollection(collection)) {
@@ -381,6 +387,8 @@ void DeletePasswordJobPrivate::scheduledStart()
         return;
     }
 
+    QObject::connect(secretsStore, &SailfishSecretStore::errorChanged,
+                     [=]() { onErrorChanged(); });
 
     bool lastEntry = false;
 
@@ -433,8 +441,6 @@ void DeletePasswordJobPrivate::scheduledStart()
 bool QKeychain::isAvailable()
 {
     if  (secretsStore != nullptr) {
-        QObject::connect(secretsStore, &SailfishSecretStore::errorChanged,
-                         [=]() { onErrorChanged(); });
         qDebug() << "Error handler connected.";
         return true;
     }
