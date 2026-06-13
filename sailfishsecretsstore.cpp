@@ -2,34 +2,6 @@
 
 #include <QDebug>
 
-/*
-#include <Secrets/plugininforequest.h>
-#include <Secrets/plugininfo.h>
-static void printPlugins() {
-    Sailfish::Secrets::SecretManager manager;
-    Sailfish::Secrets::PluginInfoRequest request;
-    request.setManager(&manager);
-    request.startRequest();
-    request.waitForFinished();
-    if (request.result().code() != Sailfish::Secrets::Result::Failed) {
-        QStringList list;
-        foreach (Sailfish::Secrets::PluginInfo p , request.authenticationPlugins()) { list << p.displayName(); }
-        qInfo() << "Known plugins:\n========================"
-                << "\n  Authentication:\n" << list.join("\n"); list.clear(); 
-
-                foreach (Sailfish::Secrets::PluginInfo p , request.storagePlugins()) { list << p.displayName(); }
-                qInfo() << "\n  Storage:\n" << list.join("\n"); list.clear(); 
-
-                foreach (Sailfish::Secrets::PluginInfo p , request.encryptionPlugins()) { list << p.displayName(); }
-                qInfo() << "\n  Encryption:\n" << list.join("\n"); list.clear();
-
-                foreach (Sailfish::Secrets::PluginInfo p , request.encryptedStoragePlugins()) { list << p.displayName(); }
-                qInfo() << "\n  Encrypted Storage:\n" << list.join("\n"); list.clear();
-        qInfo() << "\n========================";
-    }
-}
-*/
-
 SailfishSecretStore::SailfishSecretStore()
 {
     manager = new Sailfish::Secrets::SecretManager();
