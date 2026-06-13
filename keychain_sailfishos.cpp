@@ -140,7 +140,6 @@ static QPair<QKeychain::Error, QString> errorForError(const Sailfish::Secrets::R
     // OtherError /**< Something else went wrong (errorString() might provide details) */
 
     // (some selected) from Sailfish/Secrets/result.h
-    qDebug()  << Q_FUNC_INFO;
     QKeychain::Error qe;
     QString msg = r.errorMessage();
     auto ec = r.errorCode();
@@ -189,7 +188,6 @@ static QPair<const QKeychain::Error, QString> formatError(
        const enum Operation op,
        const Sailfish::Secrets::Result r)
 {
-    qDebug()  << Q_FUNC_INFO;
     auto details =  errorForError(r);
     return QPair<QKeychain::Error, QString> (
                  details.first,
