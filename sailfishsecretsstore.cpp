@@ -2,7 +2,7 @@
 
 #include <QDebug>
 
-QLoggingCategory lcQKeychainBackendSailfish("qkeychain.sailfish.backend.secrets");
+Q_LOGGING_CATEGORY(lcQKeychainBackendSailfish,"qkeychain.sailfish.backend.secrets")
 
 SailfishSecretStore::SailfishSecretStore()
 {

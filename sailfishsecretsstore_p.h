@@ -21,6 +21,8 @@
 #include <QTimer>
 #include <QLoggingCategory>
 
+Q_DECLARE_LOGGING_CATEGORY(lcQKeychainBackendSailfish)
+
 class SailfishSecretStore : public QObject {
     Q_OBJECT
     Q_PROPERTY(Sailfish::Secrets::Result lastError READ lastError NOTIFY errorChanged)

@@ -14,7 +14,8 @@
 #include <QScopedPointer>
 #include <QDebug>
 
-QLoggingCategory lcQKeychainSailfish("qkeychain.sailfish");
+Q_DECLARE_LOGGING_CATEGORY(lcQKeychainSailfish)
+Q_LOGGING_CATEGORY(lcQKeychainSailfish,"qkeychain.sailfish")
 
 using namespace QKeychain;
 
