@@ -106,7 +106,8 @@ enum SailfishSecretStoreOperation {
     SecretList,
     SecretRead,
     SecretWrite,
-    SecretUpdate,
+
+    Other
 };
 
 static const QMap<enum SailfishSecretStoreOperation, QString> messages {
@@ -116,15 +117,16 @@ static const QMap<enum SailfishSecretStoreOperation, QString> messages {
         { CollectionOpen,   QT_TR_NOOP("Open password store")  },
         { CollectionList,   QT_TR_NOOP("Find password store") },
 
-        { SecretList,       QT_TR_NOOP("Enumerate passwords") },
+        { SecretList,       QT_TR_NOOP("Find password entry") },
         { SecretFind,       QT_TR_NOOP("Find password") },
-        { SecretDelete,     QT_TR_NOOP("Delete password") },
+        { SecretDelete,     QT_TR_NOOP("Remove password") },
         { SecretRead,       QT_TR_NOOP("Retrieve password") },
         { SecretWrite,      QT_TR_NOOP("Store password") },
-        { SecretUpdate,     QT_TR_NOOP("Updating passwords is not supported yet") }
+
+        { Other,            QT_TR_NOOP("Unknown operation") }
 };
 
-static QKeychain::Error errorForError(const Sailfish::Secrets::Result::ErrorCode& e)
+static QPair<QKeychain::Error, QString> errorForError(const Sailfish::Secrets::Result r)
 {
     // from keychain.h:
     //
@@ -138,8 +140,11 @@ static QKeychain::Error errorForError(const Sailfish::Secrets::Result::ErrorCode
     // OtherError /**< Something else went wrong (errorString() might provide details) */
 
     // (some selected) from Sailfish/Secrets/result.h
+    qDebug()  << Q_FUNC_INFO;
     QKeychain::Error qe;
-    switch (e) {
+    QString msg = r.errorMessage();
+    auto ec = r.errorCode();
+    switch (ec) {
         case Sailfish::Secrets::Result::NoError:
              qe = QKeychain::NoError;
              break;
@@ -163,25 +168,32 @@ static QKeychain::Error errorForError(const Sailfish::Secrets::Result::ErrorCode
              break;
         case Sailfish::Secrets::Result::DaemonError:
         case Sailfish::Secrets::Result::SecretManagerNotInitializedError:
-        case Sailfish::Secrets::Result::DatabaseError:
         case Sailfish::Secrets::Result::InvalidExtensionPluginError:
             qe = QKeychain::NoBackendAvailable;
             break;
         case Sailfish::Secrets::Result::SecretAlreadyExistsError:
             qe = QKeychain::CouldNotDeleteEntry;
             break;
+        /* TODO: Analyze the text, create message */
+        case Sailfish::Secrets::Result::DatabaseError:
+            msg = QT_TR_NOOP("Database query failed");
+            break;
         default:
-            qWarning() << "Unknown error:" << e;
+            qWarning() << "Unknown error:" << ec;
             qe = QKeychain::OtherError;
     }
-    return qe;
+    return QPair<QKeychain::Error, QString>(qe, msg);
 }
 
 static QPair<const QKeychain::Error, QString> formatError(
        const enum SailfishSecretStoreOperation op,
-       const Sailfish::Secrets::Result::ErrorCode& e)
+       const Sailfish::Secrets::Result r)
 {
-    return QPair<QKeychain::Error, QString> ( errorForError(e), messages[op] );
+    qDebug()  << Q_FUNC_INFO;
+    auto details =  errorForError(r);
+    return QPair<QKeychain::Error, QString> (
+                 details.first,
+                 messages[op] + ": " + details.second);
 }
 
 static void onErrorChanged()
@@ -206,8 +218,11 @@ void ReadPasswordJobPrivate::scheduledStart() {
 
     if (!secretsStore->getCollection(collection)) {
 //        qWarning() << "Failed to list secret collections:" << secretsStore->lastError().errorMessage();
-        auto ec = secretsStore->lastError().errorCode();
-        auto em = secretsStore->lastError().errorMessage();
+//        auto ec = secretsStore->lastError().errorCode();
+//        auto em = secretsStore->lastError().errorMessage();
+        auto error = formatError(CollectionOpen, secretsStore->lastError());
+        q->emitFinishedWithError( error.first, error.second );
+        /*
         if (ec == Sailfish::Secrets::Result::InteractionViewUserCanceledError) {
             q->emitFinishedWithError( AccessDeniedByUser, messages[CollectionOpen] + ": " + em);
         } else if (ec == Sailfish::Secrets::Result::CollectionIsLockedError) {
@@ -215,6 +230,7 @@ void ReadPasswordJobPrivate::scheduledStart() {
         } else {
             q->emitFinishedWithError( OtherError, messages[CollectionOpen] + ": " + em);
         }
+        */
         return;
     }
 
@@ -228,6 +244,9 @@ void ReadPasswordJobPrivate::scheduledStart() {
     request->startRequest();
     request->waitForFinished();
     if (request->result().code() == Sailfish::Secrets::Result::Failed) {
+        auto error = formatError(SecretRead, request->result());
+        q->emitFinishedWithError( error.first, error.second );
+        /*
         auto ec = secretsStore->lastError().errorCode();
         auto em = secretsStore->lastError().errorMessage();
         qWarning() << "Failed to retrieve secret:" << ec << em;
@@ -236,6 +255,7 @@ void ReadPasswordJobPrivate::scheduledStart() {
         } else {
             q->emitFinishedWithError( EntryNotFound, messages[SecretRead] + ": " + em);
         }
+        */
         return;
     } else {
         qDebug() << "Secret data retrieved:"
@@ -271,6 +291,9 @@ void WritePasswordJobPrivate::scheduledStart()
 
     /* check for collection, create if necessary */
     if (!secretsStore->getCollection(collection)) {
+        auto error = formatError(CollectionCreate, secretsStore->lastError());
+        q->emitFinishedWithError( error.first, error.second );
+        /*
         auto ec = secretsStore->lastError().errorCode();
         auto em = secretsStore->lastError().errorMessage();
         if (ec == Sailfish::Secrets::Result::InteractionViewUserCanceledError) {
@@ -280,12 +303,16 @@ void WritePasswordJobPrivate::scheduledStart()
         } else {
             q->emitFinishedWithError( OtherError, messages[CollectionCreate] + ": " + em );
         }
+        */
         return;
     }
 
     /* check for existing secrets, reuse ID if found: */
     QVector<Sailfish::Secrets::Secret::Identifier> ids;
     if (!secretsStore->listSecrets(service, collection, &ids)) {
+        auto error = formatError(SecretList, secretsStore->lastError());
+        q->emitFinishedWithError( error.first, error.second );
+        /*
         auto ec = secretsStore->lastError().errorCode();
         auto em = secretsStore->lastError().errorMessage();
         QString message(messages[SecretList] + ": " + em);
@@ -297,6 +324,7 @@ void WritePasswordJobPrivate::scheduledStart()
         } else {
             q->emitFinishedWithError( OtherError, message);
         }
+        */
         return;
     }
     // update case: use found identifier:
@@ -320,14 +348,20 @@ void WritePasswordJobPrivate::scheduledStart()
     request = secretsStore->getWriteRequest(service, secret);
     QObject::connect(request, &Sailfish::Secrets::Request::statusChanged,
                     [=]() {
+                    /*
                         auto ec = request->result().errorCode();
                         auto em = request->result().errorMessage();
                         qDebug() << request->result().code() << ":" << ec;
+                     */
                         if(request->result().code() == Sailfish::Secrets::Result::Succeeded) {
                             q->emitFinished();
                         } else if (request->result().code() == Sailfish::Secrets::Result::Failed) {
+                            auto error = formatError(SecretWrite, request->result());
+                            q->emitFinishedWithError( error.first, error.second );
+                            /*
                             qWarning() << "Failed to store secret:" << ec << em;
                             q->emitFinishedWithError( OtherError, messages[SecretWrite] + ": " + em);
+                            */
                         }
                     });
     request->startRequest();
@@ -376,9 +410,13 @@ void DeletePasswordJobPrivate::scheduledStart()
     request->startRequest();
     request->waitForFinished();
     if (request->result().code() == Sailfish::Secrets::Result::Failed) {
+        auto error = formatError(SecretDelete, request->result());
+        q->emitFinishedWithError( error.first, error.second );
+        /*
         auto em = request->result().errorMessage();
         qWarning() << "Failed to delete secret:" << em;
         q->emitFinishedWithError( OtherError, messages[SecretDelete] + ": " + em );
+        */
         return;
     } else {
         q->emitFinished();
