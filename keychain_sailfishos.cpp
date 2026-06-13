@@ -124,9 +124,8 @@ static const QMap<enum SailfishSecretStoreOperation, QString> messages {
         { SecretUpdate,     QT_TR_NOOP("Updating passwords is not supported yet") }
 };
 
-static void onErrorChanged()
+static QKeychain::Error errorForError(const Sailfish::Secrets::Result::ErrorCode& e)
 {
-    auto e = secretsStore->lastError();
     // from keychain.h:
     //
     // NoError=0, /**< No error occurred, operation was successful */
@@ -140,7 +139,7 @@ static void onErrorChanged()
 
     // (some selected) from Sailfish/Secrets/result.h
     QKeychain::Error qe;
-    switch (e.errorCode()) {
+    switch (e) {
         case Sailfish::Secrets::Result::NoError:
              qe = QKeychain::NoError;
              break;
@@ -172,13 +171,25 @@ static void onErrorChanged()
             qe = QKeychain::CouldNotDeleteEntry;
             break;
         default:
-            qWarning() << "Unknown error:" << e.errorCode();
+            qWarning() << "Unknown error:" << e;
             qe = QKeychain::OtherError;
     }
+    return qe;
+}
+
+static QPair<const QKeychain::Error, QString> formatError(
+       const enum SailfishSecretStoreOperation op,
+       const Sailfish::Secrets::Result::ErrorCode& e)
+{
+    return QPair<QKeychain::Error, QString> ( errorForError(e), messages[op] );
+}
+
+static void onErrorChanged()
+{
+    auto e = secretsStore->lastError();
     qDebug() << "Saw an error:"
              << e.errorCode()
-             << e.errorMessage()
-             << qe;
+             << e.errorMessage();
 }
 
 void ReadPasswordJobPrivate::scheduledStart() {
@@ -229,6 +240,7 @@ void ReadPasswordJobPrivate::scheduledStart() {
     } else {
         qDebug() << "Secret data retrieved:"
                  << "type" << request->secret().type() << ","
+                 << "mode" << modeToString(mode) << ","
                  << request->secret().data().length() << "bytes";
         // possible types: Unknown Blob CryptoKey
         // FIXME: is CryptoKey text or binary?
@@ -385,6 +397,7 @@ bool QKeychain::isAvailable()
     if  (secretsStore != nullptr) {
         QObject::connect(secretsStore, &SailfishSecretStore::errorChanged,
                          [=]() { onErrorChanged(); });
+        qDebug() << "Error handler connected.";
         return true;
     }
     return false;
