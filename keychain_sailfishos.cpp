@@ -20,32 +20,32 @@ using namespace QKeychain;
 
 static SailfishSecretStore *secretsStore = new SailfishSecretStore();
 
-enum SailfishSecretStoreError {
-    CollectionCreateError,
-    CollectionListError,
-    CollectionOpenError,
-    ManagerError,
-    SecretDeleteError,
-    SecretFindError,
-    SecretListError,
-    SecretReadError,
-    SecretWriteError,
-    SecretUpdateError,
+enum SailfishSecretStoreOperation {
+    CollectionCreate,
+    CollectionList,
+    CollectionOpen,
+    Manager,
+    SecretDelete,
+    SecretFind,
+    SecretList,
+    SecretRead,
+    SecretWrite,
+    SecretUpdate,
 };
 
-static const QMap<enum SailfishSecretStoreError, QString> messages {
-        { ManagerError,          QT_TR_NOOP("No keychain service available") },
+static const QMap<enum SailfishSecretStoreOperation, QString> messages {
+        { Manager,          QT_TR_NOOP("No keychain service available") },
 
-        { CollectionCreateError, QT_TR_NOOP("Create password store")  },
-        { CollectionOpenError,   QT_TR_NOOP("Open password store")  },
-        { CollectionListError,   QT_TR_NOOP("Find password store") },
+        { CollectionCreate, QT_TR_NOOP("Create password store")  },
+        { CollectionOpen,   QT_TR_NOOP("Open password store")  },
+        { CollectionList,   QT_TR_NOOP("Find password store") },
 
-        { SecretListError,       QT_TR_NOOP("Enumerate passwords") },
-        { SecretFindError,       QT_TR_NOOP("Find password") },
-        { SecretDeleteError,     QT_TR_NOOP("Delete password") },
-        { SecretReadError,       QT_TR_NOOP("Retrieve password") },
-        { SecretWriteError,      QT_TR_NOOP("Store password") },
-        { SecretUpdateError,     QT_TR_NOOP("Updating passwords is not supported yet") }
+        { SecretList,       QT_TR_NOOP("Enumerate passwords") },
+        { SecretFind,       QT_TR_NOOP("Find password") },
+        { SecretDelete,     QT_TR_NOOP("Delete password") },
+        { SecretRead,       QT_TR_NOOP("Retrieve password") },
+        { SecretWrite,      QT_TR_NOOP("Store password") },
+        { SecretUpdate,     QT_TR_NOOP("Updating passwords is not supported yet") }
 };
 
 static void onErrorChanged()
@@ -112,7 +112,7 @@ void ReadPasswordJobPrivate::scheduledStart() {
     const QString collection  = secretsStore->formatCollectionName(service);
     if (!secretsStore->isInitialized()) {
         qWarning() << "Failed to connect to secret manager!";
-        q->emitFinishedWithError( NoBackendAvailable, messages[ManagerError] );
+        q->emitFinishedWithError( NoBackendAvailable, messages[Manager] );
         return;
     }
 
@@ -121,11 +121,11 @@ void ReadPasswordJobPrivate::scheduledStart() {
         auto ec = secretsStore->lastError().errorCode();
         auto em = secretsStore->lastError().errorMessage();
         if (ec == Sailfish::Secrets::Result::InteractionViewUserCanceledError) {
-            q->emitFinishedWithError( AccessDeniedByUser, messages[CollectionOpenError] + ": " + em);
+            q->emitFinishedWithError( AccessDeniedByUser, messages[CollectionOpen] + ": " + em);
         } else if (ec == Sailfish::Secrets::Result::CollectionIsLockedError) {
-            q->emitFinishedWithError( AccessDenied, messages[CollectionOpenError] + ": " + em);
+            q->emitFinishedWithError( AccessDenied, messages[CollectionOpen] + ": " + em);
         } else {
-            q->emitFinishedWithError( OtherError, messages[CollectionOpenError] + ": " + em);
+            q->emitFinishedWithError( OtherError, messages[CollectionOpen] + ": " + em);
         }
         return;
     }
@@ -144,9 +144,9 @@ void ReadPasswordJobPrivate::scheduledStart() {
         auto em = secretsStore->lastError().errorMessage();
         qWarning() << "Failed to retrieve secret:" << ec << em;
         if (ec == Sailfish::Secrets::Result::InteractionViewUserCanceledError) {
-            q->emitFinishedWithError( AccessDeniedByUser,  messages[SecretReadError] + ": " + em);
+            q->emitFinishedWithError( AccessDeniedByUser,  messages[SecretRead] + ": " + em);
         } else {
-            q->emitFinishedWithError( EntryNotFound, messages[SecretReadError] + ": " + em);
+            q->emitFinishedWithError( EntryNotFound, messages[SecretRead] + ": " + em);
         }
         return;
     } else {
@@ -196,7 +196,7 @@ void WritePasswordJobPrivate::scheduledStart()
 
     if (!secretsStore->isInitialized()) {
         qWarning() << "Failed to connect to secret manager!";
-        q->emitFinishedWithError( NoBackendAvailable, messages[ManagerError] );
+        q->emitFinishedWithError( NoBackendAvailable, messages[Manager] );
         return;
     }
 
@@ -205,11 +205,11 @@ void WritePasswordJobPrivate::scheduledStart()
         auto ec = secretsStore->lastError().errorCode();
         auto em = secretsStore->lastError().errorMessage();
         if (ec == Sailfish::Secrets::Result::InteractionViewUserCanceledError) {
-            q->emitFinishedWithError( AccessDeniedByUser,  messages[CollectionCreateError] + ": " + em);
+            q->emitFinishedWithError( AccessDeniedByUser,  messages[CollectionCreate] + ": " + em);
         } else if (ec == Sailfish::Secrets::Result::CollectionIsLockedError) {
-                q->emitFinishedWithError( AccessDenied, messages[CollectionCreateError] + ": " + em );
+                q->emitFinishedWithError( AccessDenied, messages[CollectionCreate] + ": " + em );
         } else {
-            q->emitFinishedWithError( OtherError, messages[CollectionCreateError] + ": " + em );
+            q->emitFinishedWithError( OtherError, messages[CollectionCreate] + ": " + em );
         }
         return;
     }
@@ -219,7 +219,7 @@ void WritePasswordJobPrivate::scheduledStart()
     if (!secretsStore->listSecrets(service, collection, &ids)) {
         auto ec = secretsStore->lastError().errorCode();
         auto em = secretsStore->lastError().errorMessage();
-        QString message(messages[SecretListError] + ": " + em);
+        QString message(messages[SecretList] + ": " + em);
         qWarning() << "Could not list secrets:" << em;
         if (ec == Sailfish::Secrets::Result::InteractionViewUserCanceledError) {
             q->emitFinishedWithError( AccessDeniedByUser, message);
@@ -300,7 +300,7 @@ void DeletePasswordJobPrivate::scheduledStart()
     }
     if (ids.count() == 0) {
         qWarning() << "Found no secrets to delete!";
-        q->emitFinishedWithError( EntryNotFound, messages[SecretFindError] + ": " + "Found no secrets to delete!" );
+        q->emitFinishedWithError( EntryNotFound, messages[SecretFind] + ": " + "Found no secrets to delete!" );
         return;
     }
 
@@ -319,7 +319,7 @@ void DeletePasswordJobPrivate::scheduledStart()
     if (request->result().code() == Sailfish::Secrets::Result::Failed) {
         auto em = request->result().errorMessage();
         qWarning() << "Failed to delete secret:" << em;
-        q->emitFinishedWithError( OtherError, messages[SecretDeleteError] + ": " + em );
+        q->emitFinishedWithError( OtherError, messages[SecretDelete] + ": " + em );
         return;
     } else {
         q->emitFinished();
