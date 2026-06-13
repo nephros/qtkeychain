@@ -10,13 +10,89 @@
 #include "sailfishsecretsstore_p.h"
 #include "plaintextstore_p.h"
 
-#include <QTimer>
+//#include <QDir>
 #include <QScopedPointer>
 #include <QDebug>
-#include <QMetaEnum>
 
-//#include <QDBusError>
 using namespace QKeychain;
+
+class FallbackStore {
+
+public:
+    FallbackStore(QKeychain::JobPrivate *j){
+        if (j->q->insecureFallback()) {
+            valid = true;
+            job = j; q=j->q;
+//            q->settings()->setPath(QSettings::IniFormat, QSettings::UserScope, this->settingsPath);
+        }
+    }
+    void Read();
+    void Write();
+    void Delete();
+    bool isValid() { return valid; };
+protected:
+    /*
+    const QString settingsPath = QString(QDir::homePath()
+                                         + "/.local/share"
+                                         + "/" + QCoreApplication::organizationName()
+                                         + "/" + QCoreApplication::applicationName());
+    */
+private:
+    QKeychain::JobPrivate* job = nullptr;
+    QKeychain::Job* q = nullptr;
+    bool valid = false;
+};
+
+void FallbackStore::Read()
+{
+    PlainTextStore plainTextStore( q->service(), q->settings() );
+
+    if ( q->insecureFallback() && plainTextStore.contains( q->key() ) ) {
+        job->mode = plainTextStore.readMode( q->key() );
+        job->data = plainTextStore.readData( q->key() );
+
+        if ( plainTextStore.error() != NoError )
+            q->emitFinishedWithError( plainTextStore.error(), plainTextStore.errorString() );
+        else
+            q->emitFinished();
+    } else {
+        q->emitFinishedWithError( NoBackendAvailable, q->tr("No keychain service available") );
+    }
+}
+
+void FallbackStore::Write()
+{
+    if ( !q->insecureFallback() ) {
+        q->emitFinishedWithError( NoBackendAvailable, q->tr("No keychain service available") );
+        return;
+    }
+
+    PlainTextStore plainTextStore( q->service(), q->settings() );
+    plainTextStore.write( q->key(), job->data, job->mode );
+
+    if ( plainTextStore.error() != NoError )
+        q->emitFinishedWithError( plainTextStore.error(), plainTextStore.errorString() );
+    else
+        q->emitFinished();
+}
+
+void FallbackStore::Delete()
+{
+    if ( !q->insecureFallback() ) {
+        q->emitFinishedWithError( NoBackendAvailable, q->tr("No keychain service available") );
+        return;
+    }
+
+    QScopedPointer<QSettings> local( !q->settings() ? new QSettings( q->service() ) : 0 );
+    QSettings* actual = q->settings() ? q->settings() : local.data();
+
+    actual->remove( q->key() );
+    actual->sync();
+
+    q->emitFinished();
+
+}
+
 
 static SailfishSecretStore *secretsStore = new SailfishSecretStore();
 
@@ -162,30 +238,8 @@ void ReadPasswordJobPrivate::scheduledStart() {
         q->emitFinished();
         return;
     }
-    q->emitFinishedWithError( OtherError, tr("Unknown error") );
+    q->emitFinishedWithError( OtherError, q->tr("Unknown error") );
 }
-
-/*
-void ReadPasswordJobPrivate::fallbackOnError(const QDBusError& err )
-{
-    PlainTextStore plainTextStore( q->service(), q->settings() );
-
-    if ( q->insecureFallback() && plainTextStore.contains( key ) ) {
-        mode = plainTextStore.readMode( key );
-        data = plainTextStore.readData( key );
-
-        if ( plainTextStore.error() != NoError )
-            q->emitFinishedWithError( plainTextStore.error(), plainTextStore.errorString() );
-        else
-            q->emitFinished();
-    } else {
-        if ( err.type() == QDBusError::ServiceUnknown ) //KWalletd not running
-            q->emitFinishedWithError( NoBackendAvailable, tr("No keychain service available") );
-        else
-            q->emitFinishedWithError( OtherError, tr("Could not open wallet: %1; %2").arg( QDBusError::errorString( err.type() ), err.message() ) );
-    }
-}
-*/
 
 void WritePasswordJobPrivate::scheduledStart()
 {
@@ -258,30 +312,12 @@ void WritePasswordJobPrivate::scheduledStart()
                             q->emitFinished();
                         } else if (request->result().code() == Sailfish::Secrets::Result::Failed) {
                             qWarning() << "Failed to store secret:" << ec << em;
-                            q->emitFinishedWithError( OtherError, messages[SecretWriteError] + ": " + em);
+                            q->emitFinishedWithError( OtherError, messages[SecretWrite] + ": " + em);
                         }
                     });
     request->startRequest();
     request->waitForFinished();
 }
-
-/*
-void WritePasswordJobPrivate::fallbackOnError(const QDBusError &err)
-{
-    if ( !q->insecureFallback() ) {
-        q->emitFinishedWithError( OtherError, tr("Could not open wallet: %1; %2").arg( QDBusError::errorString( err.type() ), err.message() ) );
-        return;
-    }
-
-    PlainTextStore plainTextStore( q->service(), q->settings() );
-    plainTextStore.write( key, data, mode );
-
-    if ( plainTextStore.error() != NoError )
-        q->emitFinishedWithError( plainTextStore.error(), plainTextStore.errorString() );
-    else
-        q->emitFinished();
-}
-*/
 
 void DeletePasswordJobPrivate::scheduledStart()
 {
@@ -325,7 +361,6 @@ void DeletePasswordJobPrivate::scheduledStart()
         q->emitFinished();
         if (lastEntry) {
             qDebug() << "Last secret deleted, removing collection";
-            //QTimer::singleShot(200, [=]() { secretsStore->deleteCollection(collection); });
             secretsStore->deleteCollection(collection);
         }
         return;
@@ -333,26 +368,6 @@ void DeletePasswordJobPrivate::scheduledStart()
 
     q->emitFinishedWithError( OtherError, tr("Unknown error") );
 }
-
-/*
-void DeletePasswordJobPrivate::fallbackOnError(const QDBusError &err)
-{
-    QScopedPointer<QSettings> local( !q->settings() ? new QSettings( q->service() ) : 0 );
-    QSettings* actual = q->settings() ? q->settings() : local.data();
-
-    if ( !q->insecureFallback() ) {
-        q->emitFinishedWithError( OtherError, tr("Could not open wallet: %1; %2")
-                                  .arg( QDBusError::errorString( err.type() ), err.message() ) );
-        return;
-    }
-
-    actual->remove( key );
-    actual->sync();
-
-    q->emitFinished();
-
-}
-*/
 
 bool QKeychain::isAvailable()
 {
