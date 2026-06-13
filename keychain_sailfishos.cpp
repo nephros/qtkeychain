@@ -96,7 +96,6 @@ void FallbackStore::Delete()
 
 }
 
-
 static SailfishSecretStore *secretsStore = new SailfishSecretStore();
 
 enum Operation {
@@ -339,6 +338,7 @@ void WritePasswordJobPrivate::scheduledStart()
         if (id.name() == key) {
             // FIXME: for some reason, the backend doesn't recognize the update.
             // So, delete the secret first:
+            qCWarning(lcQKeychainSailfish) << "FIXME: deleting exising entry before update";
             auto delrequest = secretsStore->getDeleteRequest(id);
             delrequest->startRequest();
             delrequest->waitForFinished();
@@ -442,8 +442,8 @@ void DeletePasswordJobPrivate::scheduledStart()
 bool QKeychain::isAvailable()
 {
     if  (secretsStore != nullptr) {
-        qCDebug(lcQKeychainSailfish) << "Error handler connected.";
         return true;
     }
+    qCCritical(lcQKeychainSailfish) << "Problem accessing backend.";
     return false;
 }
