@@ -6,6 +6,8 @@ lessThan(QT_MAJOR_VERSION, 5) {
     error("qtkeychain requires Qt 5 or later")
 }
 
+config += sailfishos
+
 QTKEYCHAIN_PWD = $$PWD
 
 CONFIG += depend_includepath
@@ -22,7 +24,7 @@ HEADERS += \
 SOURCES += \
     $$QTKEYCHAIN_PWD/keychain.cpp
 
-unix:!android:!macx:!ios {
+unix:!android:!macx:!ios:!sailfishos {
     # Remove the following LIBSECRET_SUPPORT line
     # to build without libsecret support.
     DEFINES += LIBSECRET_SUPPORT
@@ -94,4 +96,28 @@ win32 {
 macx|ios {
     LIBS += -framework Security -framework Foundation
     OBJECTIVE_SOURCES += $$QTKEYCHAIN_PWD/keychain_apple.mm
+}
+
+sailfishos {
+    CONFIG += link_pkgconfig
+    PKGCONFIG += sailfishsecrets
+
+    packagesExist(libsecret-1) {
+        !build_pass:message("Libsecret support: on")
+        CONFIG += link_pkgconfig
+        PKGCONFIG += libsecret-1
+        DEFINES += HAVE_LIBSECRET
+    } else {
+        !build_pass:warning("Libsecret not found.")
+        !build_pass:message("Libsecret support: off")
+    }
+
+    HEADERS += \
+        $$QTKEYCHAIN_PWD/sailfishsecretsstore_p.h \
+        $$QTKEYCHAIN_PWD/plaintextstore_p.h
+    SOURCES += \
+        $$QTKEYCHAIN_PWD/sailfishsecretsstore.cpp \
+        $$QTKEYCHAIN_PWD/keychain_sailfishos.cpp \
+        $$QTKEYCHAIN_PWD/plaintextstore.cpp
+}
 }
