@@ -2,6 +2,8 @@
 
 #include <QDebug>
 
+QLoggingCategory lcQKeychainBackendSailfish("qkeychain.sailfish.backend.secrets");
+
 SailfishSecretStore::SailfishSecretStore()
 {
     manager = new Sailfish::Secrets::SecretManager();
@@ -37,7 +39,7 @@ bool SailfishSecretStore::getCollection(const QString& name)
 {
     QStringList collections;
     if (!listCollections(&collections)) {
-        qWarning() << "Failed to open secret collection!";
+        qCWarning(lcQKeychainBackendSailfish) << "Failed to open secret collection!";
         return false;
     }
     if (collections.contains(name))
@@ -45,7 +47,7 @@ bool SailfishSecretStore::getCollection(const QString& name)
     if (createCollection(name))
         return true;
 
-    qWarning() << "Failed to create secret collection!";
+    qCWarning(lcQKeychainBackendSailfish) << "Failed to create secret collection!";
     return false;
 }
 
@@ -82,14 +84,14 @@ bool SailfishSecretStore::createCollection(const QString& name)
     request.startRequest();
     request.waitForFinished();
     if (request.result().code() == Sailfish::Secrets::Result::Succeeded) {
-        qInfo() << "Created new collection named" << name;
+        qCInfo(lcQKeychainBackendSailfish) << "Created new collection named" << name;
         result = true;
     } else if (request.result().code() == Sailfish::Secrets::Result::Pending) {
-        qCritical() << "Error:" << Q_FUNC_INFO << "Request wass still Pending, this should not happen";
+        qCritical(lcQKeychainBackendSailfish) << "Error:" << Q_FUNC_INFO << "Request wass still Pending, this should not happen";
     } else {
         auto code = request.result().errorCode();
         if (code == Sailfish::Secrets::Result::ErrorCode::CollectionAlreadyExistsError) {
-            qDebug() << "Error (ignored):" << code;
+            qCDebug(lcQKeychainBackendSailfish) << "Error (ignored):" << code;
             result = true;
         } else {
             setError(request.result());
@@ -113,7 +115,7 @@ bool SailfishSecretStore::deleteCollection(const QString& name)
         setError(request.result());
         return false;
     }
-    qInfo() << "Deleted collection named" << name;
+    qCInfo(lcQKeychainBackendSailfish) << "Deleted collection named" << name;
     return true;
 }
 
@@ -221,7 +223,7 @@ Sailfish::Secrets::DeleteSecretRequest* SailfishSecretStore::getDeleteRequest(co
 //void SailfishSecretStore::requestLock(const QString &collection) const
 void SailfishSecretStore::requestLock() const
 {
-    qDebug() << "Locking requested!";
+    qCDebug(lcQKeychainBackendSailfish) << "Locking requested!";
     Sailfish::Secrets::LockCodeRequest request;
     request.setManager(manager);
     request.setUserInteractionMode(manager->PreventInteraction);

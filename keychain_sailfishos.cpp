@@ -14,6 +14,8 @@
 #include <QScopedPointer>
 #include <QDebug>
 
+QLoggingCategory lcQKeychainSailfish("qkeychain.sailfish");
+
 using namespace QKeychain;
 
 class FallbackStore {
@@ -178,7 +180,7 @@ static QPair<QKeychain::Error, QString> errorForError(const Sailfish::Secrets::R
             msg = QT_TR_NOOP("Database query failed");
             break;
         default:
-            qWarning() << "Unknown error:" << ec;
+            qCWarning(lcQKeychainSailfish) << "Unknown error:" << ec;
             qe = QKeychain::OtherError;
     }
     return QPair<QKeychain::Error, QString>(qe, msg);
@@ -197,7 +199,7 @@ static QPair<const QKeychain::Error, QString> formatError(
 static void onErrorChanged()
 {
     auto e = secretsStore->lastError();
-    qDebug() << "Saw an error:"
+    qCDebug(lcQKeychainSailfish) << "Saw an error:"
              << e.errorCode()
              << e.errorMessage();
 }
@@ -208,7 +210,7 @@ void ReadPasswordJobPrivate::scheduledStart() {
     Sailfish::Secrets::Secret::Identifier sid;
     const QString collection  = secretsStore->formatCollectionName(service);
     if (!secretsStore->isInitialized()) {
-        qWarning() << "Failed to connect to secret manager!";
+        qCWarning(lcQKeychainSailfish) << "Failed to connect to secret manager!";
         FallbackStore fallback(this);
         if (fallback.isValid()) fallback.Read();
         return;
@@ -218,7 +220,7 @@ void ReadPasswordJobPrivate::scheduledStart() {
                      [=]() { onErrorChanged(); });
 
     if (!secretsStore->getCollection(collection)) {
-//        qWarning() << "Failed to list secret collections:" << secretsStore->lastError().errorMessage();
+//        qCWarning(lcQKeychainSailfish) << "Failed to list secret collections:" << secretsStore->lastError().errorMessage();
 //        auto ec = secretsStore->lastError().errorCode();
 //        auto em = secretsStore->lastError().errorMessage();
         auto error = formatError(CollectionOpen, secretsStore->lastError());
@@ -237,7 +239,7 @@ void ReadPasswordJobPrivate::scheduledStart() {
 
     sid = secretsStore->createIdentifier(collection, key);
     if (!sid.isValid()) {
-        qWarning() << "Failed to create secret identifier!";
+        qCWarning(lcQKeychainSailfish) << "Failed to create secret identifier!";
         q->emitFinishedWithError( EntryNotFound, tr("Failed to create identifier!"));
         return;
     }
@@ -250,7 +252,7 @@ void ReadPasswordJobPrivate::scheduledStart() {
         /*
         auto ec = secretsStore->lastError().errorCode();
         auto em = secretsStore->lastError().errorMessage();
-        qWarning() << "Failed to retrieve secret:" << ec << em;
+        qCWarning(lcQKeychainSailfish) << "Failed to retrieve secret:" << ec << em;
         if (ec == Sailfish::Secrets::Result::InteractionViewUserCanceledError) {
             q->emitFinishedWithError( AccessDeniedByUser,  messages[SecretRead] + ": " + em);
         } else {
@@ -259,7 +261,7 @@ void ReadPasswordJobPrivate::scheduledStart() {
         */
         return;
     } else {
-        qDebug() << "Secret data retrieved:"
+        qCDebug(lcQKeychainSailfish) << "Secret data retrieved:"
                  << "type" << request->secret().type() << ","
                  << "mode" << modeToString(mode) << ","
                  << request->secret().data().length() << "bytes";
@@ -283,7 +285,7 @@ void WritePasswordJobPrivate::scheduledStart()
     const QString collection  = secretsStore->formatCollectionName(service);
 
     if (!secretsStore->isInitialized()) {
-        qWarning() << "Failed to connect to secret manager!";
+        qCWarning(lcQKeychainSailfish) << "Failed to connect to secret manager!";
         FallbackStore fallback(this);
         if (fallback.isValid()) fallback.Write();
         //q->emitFinishedWithError( NoBackendAvailable, messages[Manager] );
@@ -320,7 +322,7 @@ void WritePasswordJobPrivate::scheduledStart()
         auto ec = secretsStore->lastError().errorCode();
         auto em = secretsStore->lastError().errorMessage();
         QString message(messages[SecretList] + ": " + em);
-        qWarning() << "Could not list secrets:" << em;
+        qCWarning(lcQKeychainSailfish) << "Could not list secrets:" << em;
         if (ec == Sailfish::Secrets::Result::InteractionViewUserCanceledError) {
             q->emitFinishedWithError( AccessDeniedByUser, message);
         } else if (ec == Sailfish::Secrets::Result::CollectionIsLockedError) {
@@ -355,7 +357,7 @@ void WritePasswordJobPrivate::scheduledStart()
                     /*
                         auto ec = request->result().errorCode();
                         auto em = request->result().errorMessage();
-                        qDebug() << request->result().code() << ":" << ec;
+                        qCDebug(lcQKeychainSailfish) << request->result().code() << ":" << ec;
                      */
                         if(request->result().code() == Sailfish::Secrets::Result::Succeeded) {
                             q->emitFinished();
@@ -363,7 +365,7 @@ void WritePasswordJobPrivate::scheduledStart()
                             auto error = formatError(SecretWrite, request->result());
                             q->emitFinishedWithError( error.first, error.second );
                             /*
-                            qWarning() << "Failed to store secret:" << ec << em;
+                            qCWarning(lcQKeychainSailfish) << "Failed to store secret:" << ec << em;
                             q->emitFinishedWithError( OtherError, messages[SecretWrite] + ": " + em);
                             */
                         }
@@ -379,7 +381,7 @@ void DeletePasswordJobPrivate::scheduledStart()
     const QString collection = secretsStore->formatCollectionName(service);
 
     if (!secretsStore->isInitialized()) {
-        qWarning() << "Failed to connect to secret manager!";
+        qCWarning(lcQKeychainSailfish) << "Failed to connect to secret manager!";
         FallbackStore fallback(this);
         if (fallback.isValid()) fallback.Delete();
         return;
@@ -398,7 +400,7 @@ void DeletePasswordJobPrivate::scheduledStart()
         return;
     }
     if (ids.count() == 0) {
-        qWarning() << "Found no secrets to delete!";
+        qCWarning(lcQKeychainSailfish) << "Found no secrets to delete!";
         q->emitFinishedWithError( EntryNotFound, messages[SecretFind] + ": " + "Found no secrets to delete!" );
         return;
     }
@@ -407,7 +409,7 @@ void DeletePasswordJobPrivate::scheduledStart()
 
     sid = secretsStore->createIdentifier(collection, key);
     if (!sid.isValid()) {
-        qWarning() << "Failed to create secret identifier!";
+        qCWarning(lcQKeychainSailfish) << "Failed to create secret identifier!";
         auto em = secretsStore->lastError().errorMessage();
         q->emitFinishedWithError( EntryNotFound, tr("Failed to create identifier!"));
         return;
@@ -420,14 +422,14 @@ void DeletePasswordJobPrivate::scheduledStart()
         q->emitFinishedWithError( error.first, error.second );
         /*
         auto em = request->result().errorMessage();
-        qWarning() << "Failed to delete secret:" << em;
+        qCWarning(lcQKeychainSailfish) << "Failed to delete secret:" << em;
         q->emitFinishedWithError( OtherError, messages[SecretDelete] + ": " + em );
         */
         return;
     } else {
         q->emitFinished();
         if (lastEntry) {
-            qDebug() << "Last secret deleted, removing collection";
+            qCDebug(lcQKeychainSailfish) << "Last secret deleted, removing collection";
             secretsStore->deleteCollection(collection);
         }
         return;
@@ -439,7 +441,7 @@ void DeletePasswordJobPrivate::scheduledStart()
 bool QKeychain::isAvailable()
 {
     if  (secretsStore != nullptr) {
-        qDebug() << "Error handler connected.";
+        qCDebug(lcQKeychainSailfish) << "Error handler connected.";
         return true;
     }
     return false;

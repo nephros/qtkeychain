@@ -19,6 +19,7 @@
 #include <Secrets/lockcoderequest.h>
 
 #include <QTimer>
+#include <QLoggingCategory>
 
 class SailfishSecretStore : public QObject {
     Q_OBJECT
