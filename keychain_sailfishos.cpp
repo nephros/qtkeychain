@@ -96,7 +96,7 @@ void FallbackStore::Delete()
 
 static SailfishSecretStore *secretsStore = new SailfishSecretStore();
 
-enum SailfishSecretStoreOperation {
+enum Operation {
     CollectionCreate,
     CollectionList,
     CollectionOpen,
@@ -110,7 +110,7 @@ enum SailfishSecretStoreOperation {
     Other
 };
 
-static const QMap<enum SailfishSecretStoreOperation, QString> messages {
+static const QMap<enum Operation, QString> messages {
         { Manager,          QT_TR_NOOP("No keychain service available") },
 
         { CollectionCreate, QT_TR_NOOP("Create password store")  },
@@ -186,7 +186,7 @@ static QPair<QKeychain::Error, QString> errorForError(const Sailfish::Secrets::R
 }
 
 static QPair<const QKeychain::Error, QString> formatError(
-       const enum SailfishSecretStoreOperation op,
+       const enum Operation op,
        const Sailfish::Secrets::Result r)
 {
     qDebug()  << Q_FUNC_INFO;
