@@ -188,7 +188,8 @@ void ReadPasswordJobPrivate::scheduledStart() {
     const QString collection  = secretsStore->formatCollectionName(service);
     if (!secretsStore->isInitialized()) {
         qWarning() << "Failed to connect to secret manager!";
-        q->emitFinishedWithError( NoBackendAvailable, messages[Manager] );
+        FallbackStore fallback(this);
+        if (fallback.isValid()) fallback.Read();
         return;
     }
 
@@ -250,7 +251,9 @@ void WritePasswordJobPrivate::scheduledStart()
 
     if (!secretsStore->isInitialized()) {
         qWarning() << "Failed to connect to secret manager!";
-        q->emitFinishedWithError( NoBackendAvailable, messages[Manager] );
+        FallbackStore fallback(this);
+        if (fallback.isValid()) fallback.Write();
+        //q->emitFinishedWithError( NoBackendAvailable, messages[Manager] );
         return;
     }
 
@@ -324,6 +327,14 @@ void DeletePasswordJobPrivate::scheduledStart()
     Sailfish::Secrets::DeleteSecretRequest* request;
     Sailfish::Secrets::Secret::Identifier sid;
     const QString collection = secretsStore->formatCollectionName(service);
+
+    if (!secretsStore->isInitialized()) {
+        qWarning() << "Failed to connect to secret manager!";
+        FallbackStore fallback(this);
+        if (fallback.isValid()) fallback.Delete();
+        return;
+    }
+
 
     bool lastEntry = false;
 
