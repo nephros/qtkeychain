@@ -34,7 +34,7 @@ enum SailfishSecretStoreError {
 };
 
 static const QMap<enum SailfishSecretStoreError, QString> messages {
-        { ManagerError,          QT_TR_NOOP("Secret manager not available!") },
+        { ManagerError,          QT_TR_NOOP("No keychain service available") },
 
         { CollectionCreateError, QT_TR_NOOP("Create password store")  },
         { CollectionOpenError,   QT_TR_NOOP("Open password store")  },
