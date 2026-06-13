@@ -82,7 +82,7 @@ bool SailfishSecretStore::createCollection(const QString& name)
     request.startRequest();
     request.waitForFinished();
     if (request.result().code() == Sailfish::Secrets::Result::Succeeded) {
-        qDebug() << "Created new collection named" << name;
+        qInfo() << "Created new collection named" << name;
         result = true;
     } else if (request.result().code() == Sailfish::Secrets::Result::Pending) {
         qCritical() << "Error:" << Q_FUNC_INFO << "Request wass still Pending, this should not happen";
@@ -92,9 +92,7 @@ bool SailfishSecretStore::createCollection(const QString& name)
             qDebug() << "Error (ignored):" << code;
             result = true;
         } else {
-            qWarning() << "Error:" << Q_FUNC_INFO << code << ":" << request.result().errorMessage();
             setError(request.result());
-            //result = false;
         }
     }
     return result;
@@ -112,11 +110,10 @@ bool SailfishSecretStore::deleteCollection(const QString& name)
     request.startRequest();
     request.waitForFinished();
     if (request.result().code() == Sailfish::Secrets::Result::Failed) {
-        qDebug() << "Error:" << Q_FUNC_INFO << request.result().errorCode();
         setError(request.result());
         return false;
     }
-    qDebug() << "Deleted collection named" << name;
+    qInfo() << "Deleted collection named" << name;
     return true;
 }
 
@@ -130,7 +127,6 @@ bool SailfishSecretStore::listCollections(QStringList* names)
     request.startRequest();
     request.waitForFinished();
     if (request.result().code() == Sailfish::Secrets::Result::Failed) {
-        qDebug() << "Error:" << Q_FUNC_INFO << request.result().errorCode();
         setError(request.result());
         return false;
     }
@@ -171,15 +167,12 @@ bool SailfishSecretStore::listSecrets(const QString &service, const QString &col
     request.startRequest();
     request.waitForFinished();
     if (request.result().code() == Sailfish::Secrets::Result::Failed) {
-        qDebug() << "Error:" << request.result().errorCode()
-                 << request.result().errorMessage();
         setError(request.result());
         success = false;
     } else {
         *ids = request.identifiers();
         success = true;
     }
-//    qDebug() << QString("Found %1 secrets in collection %2").arg(request.identifiers().length()).arg(collection);
     return success;
 }
 
